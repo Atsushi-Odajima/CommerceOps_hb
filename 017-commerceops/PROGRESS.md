@@ -10,7 +10,7 @@
 | 3 | 最小在庫, Allocation, 欠品/保留, 複数倉庫 | ✅ | テスト 13（R01〜R05, R24, R20 競合）。画面: 引当・在庫一覧/履歴・注文の引当パネル |
 | 4 | Fulfillment, Wave, Pick List, スマホ Pick | ✅ | テスト 9（R06〜R09、Short、訂正、Claim 期限、倉庫スコープ、割当候補/現場報告の RBAC）。画面: Fulfillment・Wave 作成/詳細・スマホ現場モード（Pick/商品確認/報告）・Pick List/注文識別コード印刷 |
 | 5 | Packing Station, scan 検品 | ✅ | テスト 9（R10, R11、誤 scan 5 種、強制完了、開始条件/引継ぎ/保留、複数箱・訂正・梱包取消、まとめ入力、注文キャンセル、RBAC/倉庫/テナント）。画面: Packing Station（PC/iPad）・納品書印刷 |
-| 6 | Shipment, 分割発送, Tracking | ⬜ | |
+| 6 | Shipment, 分割発送, Tracking | ✅ | テスト 8（R12, R13, E2E-3 相当の分割出荷、追跡番号の正規化/重複/訂正、CSV 取込 dryRun/適用/Shift_JIS、CSV 出力と権限、保留/キャンセル/scan/まとめ確定、RBAC/倉庫/テナント）。画面: 出荷一覧（インライン入力・scan 出荷・CSV 取込/出力）・荷物詳細・作業票 |
 | 7 | Return, 検品, Restock, Exchange | ⬜ | |
 | 8 | 例外, 作業割当, KPI, 検索, CSV export | ⬜ | |
 | 9 | 監査, 個人情報, Backup/Restore, Security | ⬜ | |
@@ -86,3 +86,13 @@
 - UI スモーク: e2e/scripts/smoke-phase5.mjs（招待した Packer が iPad 縦 820px で注文番号 scan → 別注文の商品で赤警告 → 数量過多 → 全数 → 完了、
   管理者が PC で引継ぎ → 強制完了 → forced_pack 例外、納品書）
 - 発見・修正した問題: 管理者引継ぎ時に「期限切れを引き継ぎ」と誤表示 → takeoverReason を返して表示を分岐。iPad 縦で完了ボタンが遠い → 全数一致時は scan 欄の直下にも完了ボタン
+
+## Phase6 詳細（2026-09-30）
+- API: /api/shipments（一覧・件数）, /meta, /:id（詳細・同じ注文の荷物・履歴）, PATCH /:id（配送情報・出荷後訂正）, /:id/confirm, /bulk-confirm, /scan-confirm,
+  /tracking-import（dryRun / 適用 / 確定オプション）, /export?type=pending|shipped
+- R12: 同時 3 本 + 後からの再送で on_hand 減算は 1 回（ship movement 1 行、allocation consumed、allocated 0）
+- R13: 2 箱の分割出荷で注文数量どおり。不正に作った追加荷物は EXCEEDS_PACKED で拒否、DB の CHECK 制約でも注文数量超過を拒否
+- 分割出荷: 先行出荷（揃った分）→ partially_shipped → 入荷・再引当 → 2 回目の出荷 → shipped（テストで確認）
+- 整合性チェック（ledger / allocation / shipped_qty / packed_qty）を全テストで検証
+- UI スモーク: e2e/scripts/smoke-phase6.mjs（インライン入力 → 出荷確定、scan 出荷、CSV 取込の検証→取込、出荷済み一覧、詳細、作業票、CSV 出力）
+- 発見・修正した問題: type 属性のない input にフォームのスタイルが当たらず高さが揃わない → `input:not([type])` を共通スタイルに追加

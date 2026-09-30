@@ -38,6 +38,9 @@ const OrderLabelPrint = lazy(() => import('../print/OrderLabelPrint'));
 const PackHome = lazy(() => import('../pages/pack/PackPages'));
 const PackStation = lazy(() => import('../pages/pack/PackPages').then((m) => ({ default: m.PackStation })));
 const PackingSlipPrint = lazy(() => import('../print/PackingSlipPrint'));
+const ShipmentsPage = lazy(() => import('../pages/shipments/ShipmentPages'));
+const ShipmentDetailPage = lazy(() => import('../pages/shipments/ShipmentPages').then((m) => ({ default: m.ShipmentDetailPage })));
+const ShipmentSheetPrint = lazy(() => import('../print/ShipmentSheetPrint'));
 
 const S = (el: ReactNode) => <Suspense fallback={<Loading />}>{el}</Suspense>;
 const P = (perm: string | string[], el: ReactNode) => S(<RequirePerm perm={perm}>{el}</RequirePerm>);
@@ -57,6 +60,8 @@ export const appRoutes: RouteObject[] = [
   { path: 'waves/:id', element: P(['waves.read', 'waves.manage'], <WaveDetailPage />) },
   { path: 'pack', element: P(['pack.execute', 'fulfillment.manage'], <PackHome />) },
   { path: 'pack/:sessionId', element: P(['pack.execute', 'fulfillment.manage'], <PackStation />) },
+  { path: 'shipments', element: P(['shipments.read', 'shipments.manage'], <ShipmentsPage />) },
+  { path: 'shipments/:id', element: P(['shipments.read', 'shipments.manage'], <ShipmentDetailPage />) },
   {
     path: 'settings',
     element: S(<SettingsLayout />),
@@ -94,4 +99,5 @@ export const printRoutes: RouteObject[] = [
   { path: 'pick-list/:waveId', element: P(['waves.read', 'waves.manage'], <PickListPrint />) },
   { path: 'order-label/:id', element: P('orders.read', <OrderLabelPrint />) },
   { path: 'packing-slip/:fulfillmentId', element: P(['pack.execute', 'fulfillment.manage'], <PackingSlipPrint />) },
+  { path: 'shipment/:id', element: P(['shipments.read', 'shipments.manage'], <ShipmentSheetPrint />) },
 ];

@@ -311,7 +311,7 @@ export default function OrderDetailPage() {
               <tbody>
                 {o.shipments.map((s: any) => (
                   <tr key={s.id}>
-                    <td>{s.shipmentNumber}</td>
+                    <td>{can('shipments.read') || can('shipments.manage') ? <Link to={`/shipments/${s.id}`}>{s.shipmentNumber}</Link> : s.shipmentNumber}</td>
                     <td>{s.boxNo}</td>
                     <td>
                       <StatusBadge map={SHIPMENT_STATUS} value={s.status} />

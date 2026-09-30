@@ -247,7 +247,7 @@ export function PackStation() {
   const qc = useQueryClient();
   const toast = useToast();
   const online = useOnline();
-  const { me } = useAuth();
+  const { me, can } = useAuth();
   const q = useQuery({ queryKey: ['pack-session', sessionId], queryFn: () => get(`/pack/sessions/${sessionId}`) });
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [busy, setBusy] = useState(false);
@@ -381,6 +381,16 @@ export function PackStation() {
             <Link className="btn btn-lg" to={`/print/packing-slip/${f.id}`} target="_blank">
               納品書を印刷
             </Link>
+            {v.shipments.map((s: any) => (
+              <Link key={s.id} className="btn btn-lg" to={`/print/shipment/${s.id}`} target="_blank">
+                作業票 {s.shipmentNumber}
+              </Link>
+            ))}
+            {can('shipments.manage') && (
+              <Link className="btn btn-lg" to="/shipments?status=draft">
+                出荷作業へ
+              </Link>
+            )}
           </div>
         </div>
       ) : (

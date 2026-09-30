@@ -186,3 +186,33 @@ export async function waveAndPickAll(client: TestClient, warehouseId: string, fu
 export async function orderDetail(client: TestClient, orderId: string) {
   return expectStatus(await client.get(`/api/orders/${orderId}`), 200).body;
 }
+
+/** Fulfillment を梱包完了まで進める（1 箱）。下書き Shipment を返す */
+export async function packFulfillment(client: TestClient, fulfillmentId: string) {
+  const sid = expectStatus(await client.post('/api/pack/open', { fulfillmentId }), 200).body.sessionId;
+  const v = expectStatus(await client.get(`/api/pack/sessions/${sid}`), 200).body;
+  for (const it of v.items) {
+    if (it.remaining <= 0) continue;
+    expectStatus(await client.post(`/api/pack/sessions/${sid}/scan`, { clientEventId: randomUUID(), code: it.sku, inputMethod: 'manual' }), 200);
+    if (it.remaining > 1) {
+      expectStatus(await client.post(`/api/pack/sessions/${sid}/scan`, { clientEventId: randomUUID(), code: it.sku, qty: it.remaining - 1, inputMethod: 'manual' }), 200);
+    }
+  }
+  const done = expectStatus(await client.post(`/api/pack/sessions/${sid}/complete`, { requestId: randomUUID() }), 200).body;
+  return { sessionId: sid as string, shipments: done.shipments as { id: string; shipmentNumber: string; boxNo: number; items: { sku: string; quantity: number }[] }[] };
+}
+
+/** 注文 → 引当 → Wave → ピック → 梱包まで。下書き Shipment を返す */
+export async function shipReadyOrder(
+  s: { owner: TestUser; channelId: string; warehouseId: string },
+  ext: string,
+  lines: { sku: string; quantity: number }[],
+) {
+  const o = await allocatedOrder(s.owner.client, s.channelId, ext, lines);
+  const d0 = await orderDetail(s.owner.client, o.id);
+  const ffIds = d0.fulfillments.filter((f: any) => f.status === 'ready').map((f: any) => f.id);
+  await waveAndPickAll(s.owner.client, s.warehouseId, ffIds);
+  const packed = [];
+  for (const id of ffIds) packed.push(await packFulfillment(s.owner.client, id));
+  return { order: o, fulfillmentIds: ffIds as string[], shipments: packed.flatMap((p) => p.shipments) };
+}

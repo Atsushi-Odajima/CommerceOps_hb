@@ -144,7 +144,7 @@ label { font-size: 0.88rem; font-weight: 600; display: block; margin-bottom: 4px
 .field { margin-bottom: 12px; }
 .field .hint { font-size: 0.8rem; color: var(--c-text-muted); margin-top: 2px; font-weight: normal; }
 .field .error { font-size: 0.82rem; color: var(--c-danger); margin-top: 2px; }
-input[type='text'], input[type='email'], input[type='password'], input[type='number'], input[type='search'], input[type='date'],
+input:not([type]), input[type='text'], input[type='email'], input[type='password'], input[type='number'], input[type='search'], input[type='date'],
 input[type='datetime-local'], input[type='time'], input[type='tel'], input[type='url'], select, textarea {
   font: inherit; font-size: 16px; /* iOS のズーム防止 */
   width: 100%; padding: 8px 10px; border: 1px solid var(--c-border-strong); border-radius: var(--radius); background: #fff; color: var(--c-text);
