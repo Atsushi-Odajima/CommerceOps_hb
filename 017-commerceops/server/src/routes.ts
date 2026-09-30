@@ -12,6 +12,7 @@ import { waveRoutes } from './modules/waves/routes.js';
 import { exceptionRoutes } from './modules/exceptions/routes.js';
 import { packingRoutes } from './modules/packing/routes.js';
 import { shipmentRoutes } from './modules/shipments/routes.js';
+import { returnRoutes } from './modules/returns/routes.js';
 import './jobs/register.js';
 
 /** 業務モジュールのルート登録 */
@@ -29,4 +30,5 @@ export async function registerModuleRoutes(app: FastifyInstance) {
   await app.register(exceptionRoutes);
   await app.register(packingRoutes);
   await app.register(shipmentRoutes);
+  await app.register(returnRoutes);
 }

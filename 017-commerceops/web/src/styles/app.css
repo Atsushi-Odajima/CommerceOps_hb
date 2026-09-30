@@ -273,6 +273,8 @@ dl.kv dd { margin: 0; word-break: break-word; }
 .choice input { width: 20px; height: 20px; min-height: 0; }
 
 ul.plain { list-style: none; padding: 0; margin: 0; }
+.text-danger { color: var(--c-danger); font-weight: 600; }
+.text-success { color: var(--c-success); }
 
 /* ---------- pack station ---------- */
 .pack-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; }

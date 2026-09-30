@@ -51,3 +51,18 @@ Return は Order を上書きしない。Order → Shipment → Return → (Exch
   送付先は元注文のスナップショットをコピー）として作成し、**通常の Allocation → Fulfillment(type=replacement) → Wave → Pick → Pack → Shipment** を通す。
   特別な近道は作らない（在庫引当・検品・出荷確定のルールをすべて適用）。
 - KPI の受注件数には replacement を含めない（交換件数として別集計）。
+
+## 7. 実装メモ（Phase7）
+- API: `/api/returns`（一覧・状態グループ別件数）, `/lookup`（RMA / 注文番号）, `/:id`, `POST /api/returns`, `/:id/authorize|reject|cancel|in-transit`,
+  `/:id/receive`, `/:id/inspect`, `/:id/exchange`, `/:id/attachments`（写真）, `/api/attachments/:id`, `/api/orders/:id/returnable`。
+- 同じ注文への同時返品申請は注文行ロックで直列化（返品可能数を超えない）。却下・取消で返品可能数は戻る。
+- 到着: 倉庫を指定（担当倉庫のみ）。到着数量 0〜申請数。差異・想定外の品物は例外 `return_discrepancy`。再登録は `alreadyReceived`（冪等）。在庫は動かない。
+- 検品: 1 明細を複数判定に分割可。Restock の戻し先は指定がなければ「その商品の在庫がある販売可能ロケーション」→ 倉庫の DEFAULT。
+  Damaged / Quarantine は倉庫の DAMAGED / QUARANTINE ロケーション、Discard は数量 0 の movement（記録のみ）。再販不可は理由必須。
+- 検品の冪等: Return 行ロック → 同じ `client_request_id` が既にあれば前回の結果を返す（同時再送でも 1 回）→ 明細行ロック → `inspected_qty + q <= received_qty`
+  → movement 冪等キー `return_inspection:{id}`。整合性チェックで「各検品に対応する movement が 1 つ・数量と戻し先の種類が正しい」ことを検証。
+- 写真: JPEG / PNG / WebP のみ（拡張子や Content-Type ではなく先頭バイトで判定、SVG 等は拒否）、10MB・1 返品 20 枚まで、保存キーはサーバー生成、
+  配信は `nosniff` + `sandbox` CSP + private キャッシュ。外部の画像認識サービスには送らない。
+- 交換: 返品の承認後に作成（1 返品に有効な交換は 1 つ）。交換品の注文は通常の注文作成・検証・引当エンジンを通り（欠品なら欠品例外）、Fulfillment 種別 replacement、
+  Wave → Pick → Pack → 出荷確定も通常どおり。交換品の注文が出荷済みになると交換は completed、キャンセルで cancelled。
+- 画面: 返品一覧・受付（注文から）・詳細（承認/却下/取消/返送中/到着/検品/交換/写真）、スマホ `/m/returns`（RMA scan → 到着登録・検品）、返品受領票（RMA の Code128 + QR）。

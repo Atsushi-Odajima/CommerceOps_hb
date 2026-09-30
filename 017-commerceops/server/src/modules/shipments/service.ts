@@ -14,6 +14,7 @@ import { refreshAllocationStatus } from '../allocation/engine.js';
 import { refreshFulfillmentStatus, refreshWaveStatus } from '../fulfillment/status.js';
 import { recomputeOrderStatus } from '../orders/status.js';
 import { shipToSnapshot } from '../packing/service.js';
+import { syncExchangeStatus } from '../returns/sync.js';
 
 export const CARRIERS: { code: string; label: string; aliases: string[] }[] = [
   { code: 'yamato', label: 'ヤマト運輸', aliases: ['ヤマト', 'クロネコヤマト', 'クロネコ', '宅急便'] },
@@ -241,6 +242,7 @@ export async function confirmShipment(
   const fStatus = await refreshFulfillmentStatus(tx, f.id);
   await refreshAllocationStatus(tx, o.id);
   const st = await recomputeOrderStatus(tx, o.id, `出荷 ${sh.shipment_number}`);
+  await syncExchangeStatus(tx, o.id);
   if (f.wave_id) await refreshWaveStatus(tx, f.wave_id);
   await audit(tx, {
     action: 'shipment.confirm',

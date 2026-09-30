@@ -11,7 +11,7 @@
 | 4 | Fulfillment, Wave, Pick List, スマホ Pick | ✅ | テスト 9（R06〜R09、Short、訂正、Claim 期限、倉庫スコープ、割当候補/現場報告の RBAC）。画面: Fulfillment・Wave 作成/詳細・スマホ現場モード（Pick/商品確認/報告）・Pick List/注文識別コード印刷 |
 | 5 | Packing Station, scan 検品 | ✅ | テスト 9（R10, R11、誤 scan 5 種、強制完了、開始条件/引継ぎ/保留、複数箱・訂正・梱包取消、まとめ入力、注文キャンセル、RBAC/倉庫/テナント）。画面: Packing Station（PC/iPad）・納品書印刷 |
 | 6 | Shipment, 分割発送, Tracking | ✅ | テスト 8（R12, R13, E2E-3 相当の分割出荷、追跡番号の正規化/重複/訂正、CSV 取込 dryRun/適用/Shift_JIS、CSV 出力と権限、保留/キャンセル/scan/まとめ確定、RBAC/倉庫/テナント）。画面: 出荷一覧（インライン入力・scan 出荷・CSV 取込/出力）・荷物詳細・作業票 |
-| 7 | Return, 検品, Restock, Exchange | ⬜ | |
+| 7 | Return, 検品, Restock, Exchange | ✅ | テスト 8（R14〜R18, R23、分割 Disposition、同時返品申請、差異例外・冪等到着、写真の検証/配信/流用防止、テナント分離）。画面: 返品一覧/受付/詳細（検品・交換）・スマホ到着/検品・受領票 |
 | 8 | 例外, 作業割当, KPI, 検索, CSV export | ⬜ | |
 | 9 | 監査, 個人情報, Backup/Restore, Security | ⬜ | |
 | 10 | 負荷/競合, 端末 E2E, アクセシビリティ | ⬜ | |
@@ -96,3 +96,11 @@
 - 整合性チェック（ledger / allocation / shipped_qty / packed_qty）を全テストで検証
 - UI スモーク: e2e/scripts/smoke-phase6.mjs（インライン入力 → 出荷確定、scan 出荷、CSV 取込の検証→取込、出荷済み一覧、詳細、作業票、CSV 出力）
 - 発見・修正した問題: type 属性のない input にフォームのスタイルが当たらず高さが揃わない → `input:not([type])` を共通スタイルに追加
+
+## Phase7 詳細（2026-09-30）
+- R14: 到着登録だけでは on_hand / Available 不変。R15: Restock で Available 増加（戻し先は在庫のある棚）。R16: Damaged/Quarantine は専用ロケーション、Discard は 0
+- R17: 同じ clientRequestId の同時 3 本で検品 1 回・Restock 1 回。到着数超過（EXCEEDS_RECEIVED）と完了後の検品（NOT_RECEIVED）を拒否
+- R18: 破損返品 → 交換 → 交換品注文（replacement・単価 0・送付先コピー）→ 通常の引当 → Wave → Pick → Pack → 出荷確定 → 交換 completed
+- R23: Picker は返品の作成・到着・検品（Disposition）・参照すべて 403。Packer は到着のみ、Support は受付/承認/交換のみ
+- 整合性チェック追加: 検品 1 件ごとに movement が 1 行、数量・戻し先ロケーション種別が判定と一致
+- UI スモーク: e2e/scripts/smoke-phase7.mjs（Support が PC で受付→承認→受領票、Packer がスマホで到着 1/2 + 差異メモ、管理者が PC で写真付き検品、破損→交換手配→交換品注文、管理者がスマホで検品）

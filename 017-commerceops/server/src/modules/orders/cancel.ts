@@ -11,6 +11,7 @@ import { audit } from '../audit/audit.js';
 import { autoResolveException, createException } from '../exceptions/service.js';
 import { deallocate, refreshAllocationStatus } from '../allocation/engine.js';
 import { recomputeOrderStatus } from './status.js';
+import { syncExchangeStatus } from '../returns/sync.js';
 
 const IN_PROGRESS = ['waved', 'picking', 'picked', 'packing', 'packed'];
 
@@ -120,6 +121,7 @@ export async function cancelOrder(tx: Tx, deps: Pick<AppDeps, 'numberingPool'>, 
   await autoResolveException(tx, `shortage:${orderId}`, '自動解消: 注文キャンセル');
   await refreshAllocationStatus(tx, orderId);
   const st = await recomputeOrderStatus(tx, orderId, `キャンセル: ${opts.reason}`);
+  await syncExchangeStatus(tx, orderId);
   await audit(tx, {
     action: 'order.cancel',
     entityType: 'order',

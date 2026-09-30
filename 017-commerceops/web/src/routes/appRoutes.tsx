@@ -41,6 +41,11 @@ const PackingSlipPrint = lazy(() => import('../print/PackingSlipPrint'));
 const ShipmentsPage = lazy(() => import('../pages/shipments/ShipmentPages'));
 const ShipmentDetailPage = lazy(() => import('../pages/shipments/ShipmentPages').then((m) => ({ default: m.ShipmentDetailPage })));
 const ShipmentSheetPrint = lazy(() => import('../print/ShipmentSheetPrint'));
+const ReturnsPage = lazy(() => import('../pages/returns/ReturnPages'));
+const NewReturnPage = lazy(() => import('../pages/returns/ReturnPages').then((m) => ({ default: m.NewReturnPage })));
+const ReturnDetailPage = lazy(() => import('../pages/returns/ReturnPages').then((m) => ({ default: m.ReturnDetailPage })));
+const MobileReturns = lazy(() => import('../mobile/MobileReturns'));
+const ReturnSlipPrint = lazy(() => import('../print/ReturnSlipPrint'));
 
 const S = (el: ReactNode) => <Suspense fallback={<Loading />}>{el}</Suspense>;
 const P = (perm: string | string[], el: ReactNode) => S(<RequirePerm perm={perm}>{el}</RequirePerm>);
@@ -62,6 +67,9 @@ export const appRoutes: RouteObject[] = [
   { path: 'pack/:sessionId', element: P(['pack.execute', 'fulfillment.manage'], <PackStation />) },
   { path: 'shipments', element: P(['shipments.read', 'shipments.manage'], <ShipmentsPage />) },
   { path: 'shipments/:id', element: P(['shipments.read', 'shipments.manage'], <ShipmentDetailPage />) },
+  { path: 'returns', element: P(['returns.read', 'returns.receive', 'returns.inspect'], <ReturnsPage />) },
+  { path: 'returns/new', element: P('returns.request', <NewReturnPage />) },
+  { path: 'returns/:id', element: P(['returns.read', 'returns.receive', 'returns.inspect'], <ReturnDetailPage />) },
   {
     path: 'settings',
     element: S(<SettingsLayout />),
@@ -92,6 +100,7 @@ export const fieldRoutes: RouteObject[] = [
   { path: 'pick/:taskId', element: P('pick.execute', <PickMode />) },
   { path: 'lookup', element: P('products.read', <ProductLookup />) },
   { path: 'report', element: P('exceptions.report', <FieldReport />) },
+  { path: 'returns', element: P(['returns.receive', 'returns.inspect'], <MobileReturns />) },
 ];
 
 export const printRoutes: RouteObject[] = [
@@ -100,4 +109,5 @@ export const printRoutes: RouteObject[] = [
   { path: 'order-label/:id', element: P('orders.read', <OrderLabelPrint />) },
   { path: 'packing-slip/:fulfillmentId', element: P(['pack.execute', 'fulfillment.manage'], <PackingSlipPrint />) },
   { path: 'shipment/:id', element: P(['shipments.read', 'shipments.manage'], <ShipmentSheetPrint />) },
+  { path: 'return/:id', element: P(['returns.read', 'returns.receive', 'returns.inspect'], <ReturnSlipPrint />) },
 ];

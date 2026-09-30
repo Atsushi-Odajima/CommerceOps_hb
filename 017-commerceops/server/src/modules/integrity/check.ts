@@ -103,6 +103,19 @@ const CHECKS: { name: string; sql: string }[] = [
            WHERE ri.organization_id = $1 GROUP BY ri.id, ri.inspected_qty HAVING ri.inspected_qty <> COALESCE(SUM(ins.qty), 0)`,
   },
   {
+    name: 'each return inspection has exactly its movement (restock→pick / damaged→damaged / quarantine→quarantine / discard→0)',
+    sql: `SELECT ins.id, ins.disposition, ins.qty, m.on_hand_delta, l.kind
+            FROM return_inspections ins
+            LEFT JOIN inventory_movements m ON m.organization_id = ins.organization_id AND m.idempotency_key = 'return_inspection:' || ins.id::text
+            LEFT JOIN locations l ON l.organization_id = m.organization_id AND l.id = m.location_id
+           WHERE ins.organization_id = $1
+             AND (m.id IS NULL
+                  OR m.on_hand_delta <> CASE WHEN ins.disposition = 'discard' THEN 0 ELSE ins.qty END
+                  OR (ins.disposition = 'restock' AND l.kind <> 'pick')
+                  OR (ins.disposition = 'damaged' AND l.kind <> 'damaged')
+                  OR (ins.disposition = 'quarantine' AND l.kind <> 'quarantine'))`,
+  },
+  {
     name: 'returned qty <= shipped qty (per order item, active returns)',
     sql: `SELECT oi.id, oi.shipped_qty, SUM(ri.requested_qty) AS returned
             FROM order_items oi JOIN return_items ri ON ri.organization_id = oi.organization_id AND ri.order_item_id = oi.id
