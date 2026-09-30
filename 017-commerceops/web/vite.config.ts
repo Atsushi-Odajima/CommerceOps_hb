@@ -28,6 +28,8 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest}'],
+        // バーコード生成（印刷画面専用・約1MB）はプリキャッシュしない（スマホの初回ダウンロードを軽くする）
+        globIgnores: ['**/bwip-js-*.js'],
         navigateFallback: '/index.html',
         navigateFallbackDenylist: [/^\/api\//, /^\/healthz/, /^\/readyz/],
         // API レスポンス（個人情報を含む）はキャッシュしない

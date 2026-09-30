@@ -8,7 +8,7 @@
 | 1 | Organization, Warehouse, Users/RBAC, Channel, ImportProfile | ✅ | API テスト 14 + マッピング単体 21。画面: 設定（組織/倉庫・ロケーション/ユーザー/チャネル/Import Profile エディタ）、商品 |
 | 2 | CSV Import, 正規化, Order/Item, 重複/競合 | ✅ | テスト 14（R19/R20/R21/R25 含む）。画面: 取込ウィザード・取込履歴・注文一覧/詳細・手動注文 |
 | 3 | 最小在庫, Allocation, 欠品/保留, 複数倉庫 | ✅ | テスト 13（R01〜R05, R24, R20 競合）。画面: 引当・在庫一覧/履歴・注文の引当パネル |
-| 4 | Fulfillment, Wave, Pick List, スマホ Pick | ⬜ | |
+| 4 | Fulfillment, Wave, Pick List, スマホ Pick | ✅ | テスト 9（R06〜R09、Short、訂正、Claim 期限、倉庫スコープ、割当候補/現場報告の RBAC）。画面: Fulfillment・Wave 作成/詳細・スマホ現場モード（Pick/商品確認/報告）・Pick List/注文識別コード印刷 |
 | 5 | Packing Station, scan 検品 | ⬜ | |
 | 6 | Shipment, 分割発送, Tracking | ⬜ | |
 | 7 | Return, 検品, Restock, Exchange | ⬜ | |
@@ -57,3 +57,20 @@
 - Job: allocation.run（dedupe key で組織ごとに同時 1 本）
 - 整合性チェック: modules/integrity/check.ts（ledger と各数量の不変条件）をテストで毎回検証
 - 発見・修正した問題: 同時実行で予定ロケーションを取られた際に再読込しておらず引当不足（過剰ではない）になっていた → 再試行ループを追加
+
+## Phase4 詳細（2026-09-30）
+- Fulfillment: 1 注文 × 1 倉庫。状態は各数量（required/picked/short/packed/shipped）から導出（refreshFulfillmentStatus）。Short 解決（バックログに戻す / 別倉庫へ再引当）
+- Wave: プレビュー → 作成時に対象 Fulfillment を条件付き UPDATE で固定（R06: 後から来た注文は入らない、二重投入は 409）。タスク分割（1 人 / ゾーン / 行数）。
+  Pick 済みがある Wave の取消は confirm 必須で棚戻し例外を作成、Pack 開始後・未解決 Short がある場合は取消不可
+- Pick タスク: claim は条件付き UPDATE（R07: 同時 claim は 1 人のみ）、期限切れ claim は 1 分ごとの maintenance で解放（進捗は保持）、管理者の割当/付け替え（担当範囲外の Picker は 403）
+- Pick scan: clientEventId UNIQUE で再送は 1 回分（R08）。誤ロケーション / 未登録コード / 誤 SKU（R09）/ 数量超過は 422 で拒否し pick_events に記録（誤 scan も監査可能）
+- Short: 残数を held（調査中）へ移し在庫からは減算しない、inventory_mismatch / short_pick 例外、注文は自動キャンセルしない
+- 訂正: 負のイベントを追加（履歴を消さない）。Pack 開始後は不可
+- スマホ Pick（/m）: ロケーション scan → 商品 scan（1 scan = 1 個）、数量まとめ入力は 2 段階確認、ハンディスキャナ（キーボード入力）/ 手入力 / カメラ（BarcodeDetector → ZXing）、
+  音・振動フィードバック、オフライン時は Pick scan のみ IndexedDB に「未同期」下書き（Short・Pack・出荷・在庫調整はオフライン確定しない）→ 再接続時にサーバーが再検証
+- Picker の画面・API に住所/氏名/電話を出さない（テストで検証）。商品確認で在庫数は inventory.read 保持者のみ
+- 現場報告 API（/api/exceptions/report）: requestId で二重送信を 1 件に、倉庫スコープ検証
+- 印刷: Pick List（タスク別・ロケーション順・Wave/タスクの Code128）、注文識別コード（注文番号・出荷作業番号の Code128 + QR。送り状ではない・個人情報なし）
+- UI スモーク: e2e/scripts/smoke-phase4.mjs（PC で Wave 作成 → 招待した Picker が 390px 幅で claim → 誤ロケーション/誤 SKU/正 scan/数量まとめ → 完了、商品確認、現場報告、Picker の /api/orders は 403、印刷画面）
+- 発見・修正した問題: 誤 scan の 422 応答が共通エラー形式でなく画面に「エラーが発生しました (422)」と表示 → { error: { code, message } } を併記。
+  QR 生成で height: undefined を渡し bwipp.invalidOptionType → QR ではオプションを渡さない。バーコード生成ライブラリ（約 1MB）を PWA プリキャッシュから除外

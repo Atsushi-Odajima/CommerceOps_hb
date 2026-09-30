@@ -7,7 +7,7 @@ import { randomToken, sha256Buf } from '../../lib/hash.js';
 import { uuidv7 } from '../../lib/uuid.js';
 import { parse } from '../../lib/validate.js';
 import { OrgSettingsSchema, parseOrgSettings } from '../../auth/context.js';
-import { ROLES, ROLE_LABELS } from '../../auth/permissions.js';
+import { PERMISSIONS, ROLES, ROLE_LABELS, isRole, permissionsFor } from '../../auth/permissions.js';
 import { audit } from '../audit/audit.js';
 import { destroyUserSessions } from '../../auth/session.js';
 
@@ -77,6 +77,24 @@ export async function orgRoutes(app: FastifyInstance) {
         joinedAt: u.created_at,
       })),
     };
+  });
+
+  /** 作業割当の候補（指定権限を持つ有効メンバー。倉庫指定時はその倉庫にアクセスできる人のみ）。メール等は返さない */
+  app.get('/api/users/assignable', { preHandler: perm('waves.manage', 'fulfillment.manage', 'exceptions.manage') }, async (req) => {
+    const auth = requireOrg(req);
+    const q = parse(z.object({ perm: z.enum(PERMISSIONS), warehouseId: z.uuid().optional() }), req.query);
+    const r = await pool.query(
+      `SELECT u.id, u.name, m.role, m.warehouse_ids
+         FROM memberships m JOIN users u ON u.id = m.user_id
+        WHERE m.organization_id = $1 AND m.status = 'active' AND u.status = 'active'
+        ORDER BY u.name`,
+      [auth.org.id],
+    );
+    const items = r.rows
+      .filter((m) => isRole(m.role) && permissionsFor(m.role).has(q.perm))
+      .filter((m) => !q.warehouseId || m.warehouse_ids === null || m.warehouse_ids.includes(q.warehouseId))
+      .map((m) => ({ userId: m.id, name: m.name, role: m.role, roleLabel: ROLE_LABELS[m.role as keyof typeof ROLE_LABELS] }));
+    return { items };
   });
 
   app.patch('/api/users/:userId', { preHandler: perm('users.manage') }, async (req) => {

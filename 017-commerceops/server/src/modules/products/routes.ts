@@ -153,15 +153,18 @@ export async function productRoutes(app: FastifyInstance) {
           ORDER BY w.priority, l.pick_sequence`,
         [tx.orgId, p.id, auth.warehouseIds],
       );
+      // 在庫数は inventory.read を持つ場合のみ返す（Picker には置き場所だけを示す）
+      const showQty = hasPerm(auth, 'inventory.read');
+      const barcodes = await tx.many('SELECT code, symbology FROM product_barcodes WHERE organization_id = $1 AND product_id = $2 ORDER BY code', [tx.orgId, p.id]);
       return {
-        product: mapProduct(p),
+        product: { ...mapProduct(p), barcodes: barcodes.map((b) => ({ code: b.code, symbology: b.symbology })) },
         locations: locations.map((l) => ({
           warehouseCode: l.warehouse_code,
           warehouseName: l.warehouse_name,
           locationCode: l.location_code,
           kind: l.kind,
-          onHand: l.on_hand,
-          available: l.on_hand - l.allocated - l.held,
+          onHand: showQty ? l.on_hand : undefined,
+          available: showQty ? l.on_hand - l.allocated - l.held : undefined,
         })),
       };
     });

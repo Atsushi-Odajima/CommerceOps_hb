@@ -24,6 +24,17 @@ const NewOrderPage = lazy(() => import('../pages/orders/NewOrderPage'));
 const AllocationPage = lazy(() => import('../pages/allocation/AllocationPage'));
 const InventoryPage = lazy(() => import('../pages/inventory/InventoryPage'));
 const MovementsPage = lazy(() => import('../pages/inventory/InventoryPage').then((m) => ({ default: m.MovementsPage })));
+const WavesPage = lazy(() => import('../pages/waves/WavePages'));
+const WaveCreatePage = lazy(() => import('../pages/waves/WavePages').then((m) => ({ default: m.WaveCreatePage })));
+const WaveDetailPage = lazy(() => import('../pages/waves/WavePages').then((m) => ({ default: m.WaveDetailPage })));
+const FulfillmentsPage = lazy(() => import('../pages/waves/WavePages').then((m) => ({ default: m.FulfillmentsPage })));
+const MobileHome = lazy(() => import('../mobile/MobileHome'));
+const TaskListPage = lazy(() => import('../mobile/MobileHome').then((m) => ({ default: m.TaskListPage })));
+const PickMode = lazy(() => import('../mobile/PickMode'));
+const ProductLookup = lazy(() => import('../mobile/ProductLookup'));
+const FieldReport = lazy(() => import('../mobile/FieldReport'));
+const PickListPrint = lazy(() => import('../print/PickListPrint'));
+const OrderLabelPrint = lazy(() => import('../print/OrderLabelPrint'));
 
 const S = (el: ReactNode) => <Suspense fallback={<Loading />}>{el}</Suspense>;
 const P = (perm: string | string[], el: ReactNode) => S(<RequirePerm perm={perm}>{el}</RequirePerm>);
@@ -37,6 +48,10 @@ export const appRoutes: RouteObject[] = [
   { path: 'orders/new', element: P('orders.import', <NewOrderPage />) },
   { path: 'orders/:id', element: P('orders.read', <OrderDetailPage />) },
   { path: 'allocation', element: P('allocation.manage', <AllocationPage />) },
+  { path: 'fulfillments', element: P(['fulfillment.manage', 'waves.manage'], <FulfillmentsPage />) },
+  { path: 'waves', element: P(['waves.read', 'waves.manage'], <WavesPage />) },
+  { path: 'waves/new', element: P('waves.manage', <WaveCreatePage />) },
+  { path: 'waves/:id', element: P(['waves.read', 'waves.manage'], <WaveDetailPage />) },
   {
     path: 'settings',
     element: S(<SettingsLayout />),
@@ -61,6 +76,16 @@ export const appRoutes: RouteObject[] = [
   },
 ];
 
-export const fieldRoutes: RouteObject[] = [];
+export const fieldRoutes: RouteObject[] = [
+  { index: true, element: S(<MobileHome />) },
+  { path: 'tasks', element: P('pick.execute', <TaskListPage />) },
+  { path: 'pick/:taskId', element: P('pick.execute', <PickMode />) },
+  { path: 'lookup', element: P('products.read', <ProductLookup />) },
+  { path: 'report', element: P('exceptions.report', <FieldReport />) },
+];
 
-export const printRoutes: RouteObject[] = [{ path: 'location-labels/:warehouseId', element: P('warehouses.manage', <LocationLabelsPrint />) }];
+export const printRoutes: RouteObject[] = [
+  { path: 'location-labels/:warehouseId', element: P('warehouses.manage', <LocationLabelsPrint />) },
+  { path: 'pick-list/:waveId', element: P(['waves.read', 'waves.manage'], <PickListPrint />) },
+  { path: 'order-label/:id', element: P('orders.read', <OrderLabelPrint />) },
+];

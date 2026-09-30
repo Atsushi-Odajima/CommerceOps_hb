@@ -28,15 +28,12 @@ export function Barcode({
     loadBwip()
       .then((mod) => {
         const bwip = (mod as any).default ?? mod;
-        const svg: string = bwip.toSVG({
-          bcid: kind,
-          text: value,
-          scale,
-          height: kind === 'qrcode' ? undefined : height,
-          includetext: showText && kind !== 'qrcode',
-          textxalign: 'center',
-          textsize: 9,
-        });
+        // QR は height / テキスト系オプションを受け付けない（undefined を渡すと bwipp.invalidOptionType）
+        const opts: Record<string, unknown> =
+          kind === 'qrcode'
+            ? { bcid: kind, text: value, scale }
+            : { bcid: kind, text: value, scale, height, includetext: showText, textxalign: 'center', textsize: 9 };
+        const svg: string = bwip.toSVG(opts);
         const url = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
         if (alive) setSrc(url);
       })
