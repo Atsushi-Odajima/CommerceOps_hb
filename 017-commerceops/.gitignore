@@ -1,0 +1,14 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*
+!.env.example
+data/
+*.log
+e2e/test-results/
+e2e/playwright-report/
+load/results/*.json
+!load/results/.gitkeep
+.vite/
+*.tsbuildinfo

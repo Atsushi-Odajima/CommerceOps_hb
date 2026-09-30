@@ -1,0 +1,15 @@
+{
+  "name": "@commerceops/e2e",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "^1.56.1",
+    "bwip-js": "^4.11.4"
+  },
+  "license": "UNLICENSED"
+}

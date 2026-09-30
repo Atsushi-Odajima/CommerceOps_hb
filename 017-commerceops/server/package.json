@@ -1,0 +1,48 @@
+{
+  "name": "@commerceops/server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/index.ts",
+    "build": "tsc -p tsconfig.build.json && node scripts/copy-assets.mjs",
+    "start": "node dist/index.js",
+    "worker": "node dist/worker.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "seed:sample": "tsx src/scripts/seed-sample.ts",
+    "create-owner": "tsx src/scripts/create-owner.ts",
+    "backup": "tsx src/scripts/backup-cli.ts",
+    "restore": "tsx src/scripts/restore-cli.ts",
+    "integrity": "tsx src/scripts/integrity-cli.ts"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.2",
+    "@fastify/helmet": "^13.1.1",
+    "@fastify/multipart": "^10.1.2",
+    "@fastify/rate-limit": "^11.2.0",
+    "@fastify/static": "^10.1.5",
+    "csv-parse": "^6.2.1",
+    "fastify": "^5.12.5",
+    "iconv-lite": "^0.7.3",
+    "pg": "^8.23.0",
+    "pino": "^10.3.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.4",
+    "@types/pg": "^8.23.1",
+    "@types/pngjs": "^6.0.5",
+    "@zxing/library": "^0.23.0",
+    "autocannon": "^8.0.0",
+    "bwip-js": "^4.11.4",
+    "pngjs": "^7.0.0",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.11"
+  },
+  "license": "UNLICENSED"
+}

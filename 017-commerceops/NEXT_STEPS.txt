@@ -1,0 +1,5 @@
+CommerceOps 次の作業（常に最新化）
+
+1. Phase1: 組織設定・倉庫/ロケーション・商品/バーコード・ユーザー招待/ロール/倉庫範囲・販売チャネル・Import Profile の API + 画面 + RBAC テスト
+2. Phase2: CSV 取込（文字コード→Profile→プレビュー→検証→重複→確定）
+3. 以降 PLAN.md の Phase 表どおり

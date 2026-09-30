@@ -1,0 +1,25 @@
+{
+  "name": "commerceops",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CommerceOps — EC受注・ピッキング・梱包・出荷・返品管理",
+  "license": "UNLICENSED",
+  "workspaces": [
+    "server",
+    "web",
+    "e2e"
+  ],
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "npm run dev -w server & npm run dev -w web",
+    "build": "npm run build -w web && npm run build -w server",
+    "start": "npm run start -w server",
+    "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
+    "test": "npm run test -w server",
+    "e2e": "npm run test -w e2e",
+    "db:migrate": "npm run db:migrate -w server",
+    "seed:sample": "npm run seed:sample -w server"
+  }
+}
