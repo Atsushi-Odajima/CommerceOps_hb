@@ -5,6 +5,7 @@ import { badRequest, conflict, forbidden, notFound } from '../../lib/errors.js';
 import { sha256Hex } from '../../lib/hash.js';
 import { readUpload } from '../../lib/upload.js';
 import { uuidv7 } from '../../lib/uuid.js';
+import { cappedCount } from '../../lib/pagination.js';
 import { IdParams, parse, zPage } from '../../lib/validate.js';
 import { audit } from '../audit/audit.js';
 import { createExchange, createReturn, DISPOSITIONS, inspectReturn, receiveReturn, RETURN_REASONS, returnableItems, transitionReturn } from './service.js';
@@ -49,7 +50,7 @@ export async function returnRoutes(app: FastifyInstance) {
       const where = `r.organization_id = $1 AND ($2::text[] IS NULL OR r.status = ANY($2))
         AND ($3::text IS NULL OR r.return_number = $3 OR o.order_number = $3 OR upper(o.external_order_id) = $3)
         AND ($4::uuid IS NULL OR r.warehouse_id = $4) AND ($5::uuid[] IS NULL OR r.warehouse_id IS NULL OR r.warehouse_id = ANY($5))`;
-      const total = (await tx.one(`SELECT count(*)::int AS n FROM returns r JOIN orders o ON o.organization_id = r.organization_id AND o.id = r.order_id WHERE ${where}`, params)).n;
+      const { total, totalCapped } = await cappedCount(tx, `FROM returns r JOIN orders o ON o.organization_id = r.organization_id AND o.id = r.order_id WHERE ${where}`, params);
       const counts = await tx.many(
         `SELECT r.status, count(*)::int AS n FROM returns r WHERE r.organization_id = $1 AND ($2::uuid[] IS NULL OR r.warehouse_id IS NULL OR r.warehouse_id = ANY($2)) GROUP BY r.status`,
         [tx.orgId, auth.warehouseIds],
@@ -72,6 +73,7 @@ export async function returnRoutes(app: FastifyInstance) {
       const count = (keys: string[]) => counts.filter((c) => keys.includes(c.status)).reduce((s, c) => s + c.n, 0);
       return {
         total,
+        totalCapped,
         counts: Object.fromEntries(Object.entries(STATUS_GROUPS).map(([k, v]) => [k, count(v)])),
         items: rows.map((r) => ({
           id: r.id,

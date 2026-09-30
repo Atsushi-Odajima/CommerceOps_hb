@@ -139,7 +139,7 @@ export default function ExceptionsPage() {
       ) : (
         <EmptyState title="該当する例外はありません">{status === 'active' ? '未解決の例外はありません。' : null}</EmptyState>
       )}
-      <Pagination total={list.data?.total ?? 0} limit={50} offset={offset} onChange={setOffset} />
+      <Pagination total={list.data?.total ?? 0} capped={list.data?.totalCapped} limit={50} offset={offset} onChange={setOffset} />
     </>
   );
 }

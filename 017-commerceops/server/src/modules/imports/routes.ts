@@ -136,6 +136,10 @@ export async function importRoutes(app: FastifyInstance) {
     const { id } = parse(IdParams, req.params);
     const body = parse(z.object({ applyUpdateIds: z.array(z.uuid()).max(10000).default([]) }), req.body ?? {});
     const result = await orgTx(req, (tx) => commitImport(tx, req.server.deps, id, body));
+    // まとまった数の注文が入ったら統計情報を更新する（作ったばかりの組織でも画面の問い合わせが行数を見誤らないように。docs/OPERATIONS.md §8.1）
+    if (!result.alreadyCommitted && result.created >= 100) {
+      await enqueue(req.server.deps.pool, { type: 'db.analyze', payload: { tables: ['orders', 'order_items', 'customers', 'import_batch_orders', 'order_status_history'] }, dedupeKey: 'db.analyze' });
+    }
     let allocationJobId: number | null = null;
     if (!result.alreadyCommitted && result.created > 0 && auth.org.settings.allocation.autoAllocateOnImport) {
       const j = await enqueue(req.server.deps.pool, {

@@ -239,8 +239,14 @@ function TransferForm({ row, balance, onDone }: { row: any; balance: any; onDone
   const locs = useQuery({ queryKey: ['locations', balance.warehouseId], queryFn: () => get(`/warehouses/${balance.warehouseId}/locations`) });
   const [to, setTo] = useState('');
   const [qty, setQty] = useState(1);
+  const [reason, setReason] = useState('');
   const [err, setErr] = useState<unknown>(null);
   const [reqId] = useState(newRequestId);
+  // 移動できるのは引当・調査中を除いた数量（返品保留・破損の棚も同じ）
+  const movable = Math.max(0, balance.onHand - balance.allocated - balance.held);
+  const toKind = locs.data?.items.find((l: any) => l.id === to)?.kind as string | undefined;
+  // 販売可能な棚と返品保留・破損の棚の間の移動は、売れる在庫が増える/減るので理由が必須
+  const changesSellable = !!toKind && toKind !== balance.kind && (toKind === 'pick' || balance.kind === 'pick');
   return (
     <div className="card" style={{ marginTop: 12 }}>
       <h3>ロケーション移動（{balance.locationCode} から）</h3>
@@ -258,16 +264,24 @@ function TransferForm({ row, balance, onDone }: { row: any; balance: any; onDone
               ))}
           </select>
         </Field>
-        <Field label={`数量（最大 ${balance.available}）`} htmlFor="tr-qty">
-          <input id="tr-qty" type="number" min={1} max={balance.available} value={qty} onChange={(e) => setQty(Number(e.target.value))} />
+        <Field label={`数量（最大 ${movable}）`} htmlFor="tr-qty">
+          <input id="tr-qty" type="number" min={1} max={movable} value={qty} onChange={(e) => setQty(Number(e.target.value))} />
+        </Field>
+        <Field label={changesSellable ? '理由（必須）' : '理由（任意）'} htmlFor="tr-reason">
+          <input id="tr-reason" value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} />
         </Field>
       </div>
+      {changesSellable && (
+        <p className="small text-danger">
+          {toKind === 'pick' ? '販売可能な在庫に戻ります（引当の対象になります）。再確認の結果などを理由に記録してください。' : '販売可能な在庫から外れます。理由を記録してください。'}
+        </p>
+      )}
       <button
         className="btn btn-primary btn-sm"
-        disabled={!to}
+        disabled={!to || qty < 1 || qty > movable || (changesSellable && !reason.trim())}
         onClick={async () => {
           try {
-            await post('/inventory/transfers', { fromLocationId: balance.locationId, toLocationId: to, productId: row.productId, qty, requestId: reqId });
+            await post('/inventory/transfers', { fromLocationId: balance.locationId, toLocationId: to, productId: row.productId, qty, reason: reason.trim() || undefined, requestId: reqId });
             onDone();
           } catch (e) {
             setErr(e);
@@ -395,6 +409,7 @@ function InventoryImportModal({ onClose }: { onClose: () => void }) {
   const toast = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [mode, setMode] = useState('set');
+  const [encoding, setEncoding] = useState('utf-8');
   const [result, setResult] = useState<any>(null);
   const [err, setErr] = useState<unknown>(null);
   const run = async (dryRun: boolean) => {
@@ -403,6 +418,7 @@ function InventoryImportModal({ onClose }: { onClose: () => void }) {
     const fd = new FormData();
     fd.append('mode', mode);
     fd.append('dryRun', String(dryRun));
+    fd.append('encoding', encoding);
     fd.append('file', file);
     try {
       const r = await api('/inventory/import', { method: 'POST', body: fd });
@@ -418,11 +434,17 @@ function InventoryImportModal({ onClose }: { onClose: () => void }) {
   return (
     <Modal title="在庫 CSV 取込" onClose={onClose} footer={<button className="btn" onClick={onClose}>閉じる</button>}>
       <p className="small">
-        列: <code>warehouse_code,location_code,sku,qty</code>。全行が正しい場合のみ反映します（テンプレート: inventory_template.csv）。
+        列: <code>warehouse_code,location_code,sku,qty</code>。全行が正しい場合のみ反映します（テンプレート: 購入者資料「CSVテンプレート/在庫CSVテンプレート.csv」）。
       </p>
       <ErrorBox error={err} />
       <Field label="ファイル" htmlFor="ii-file">
         <input id="ii-file" type="file" accept=".csv,text/csv" onChange={(e) => { setFile(e.target.files?.[0] ?? null); setResult(null); }} />
+      </Field>
+      <Field label="文字コード" htmlFor="ii-enc">
+        <select id="ii-enc" value={encoding} onChange={(e) => setEncoding(e.target.value)}>
+          <option value="utf-8">UTF-8</option>
+          <option value="shift_jis">Shift_JIS</option>
+        </select>
       </Field>
       <Field label="方法" htmlFor="ii-mode">
         <select id="ii-mode" value={mode} onChange={(e) => setMode(e.target.value)}>
@@ -518,7 +540,7 @@ export function MovementsPage() {
               </tbody>
             </table>
           </div>
-          <Pagination offset={offset} limit={50} total={list.data?.total ?? 0} onChange={setOffset} />
+          <Pagination offset={offset} limit={50} total={list.data?.total ?? 0} capped={list.data?.totalCapped} onChange={setOffset} />
         </>
       )}
     </div>

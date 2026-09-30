@@ -321,7 +321,16 @@ export function WaveDetailPage() {
       />
       {w.cancelReason && <div className="alert warning">取消理由: {w.cancelReason}</div>}
       <div className="card">
-        <h2>Pick タスク</h2>
+        <div className="card-header">
+          <h2>Pick タスク</h2>
+          {can('waves.manage') && w.tasks.some((t: any) => ['open', 'in_progress'].includes(t.status)) && (
+            <div className="actions">
+              <button className="btn btn-sm" onClick={() => setAssign({ wave: true })}>
+                まとめて割り当て
+              </button>
+            </div>
+          )}
+        </div>
         <div className="table-wrap">
           <table className="table">
             <thead>
@@ -417,7 +426,7 @@ export function WaveDetailPage() {
           </table>
         </div>
       </div>
-      {assign && <AssignModal task={assign} onClose={() => setAssign(null)} onDone={refresh} />}
+      {assign && <AssignModal task={assign.wave ? null : assign} wave={assign.wave ? { id: w.id, waveNumber: w.waveNumber } : null} onClose={() => setAssign(null)} onDone={refresh} />}
       {cancel && (
         <ConfirmDialog
           title={`${w.waveNumber} を取消`}
@@ -448,13 +457,16 @@ export function WaveDetailPage() {
   );
 }
 
-function AssignModal({ task, onClose, onDone }: { task: any; onClose: () => void; onDone: () => void }) {
+/** 1 タスク、または Wave の未完了タスクをまとめて作業者に割り当てる */
+function AssignModal({ task, wave, onClose, onDone }: { task: any; wave?: { id: string; waveNumber: string } | null; onClose: () => void; onDone: () => void }) {
   const users = useQuery({ queryKey: ['assignable-users'], queryFn: () => get('/users/assignable?perm=pick.execute') });
   const [userId, setUserId] = useState('');
+  const [onlyUnassigned, setOnlyUnassigned] = useState(true);
   const [err, setErr] = useState<unknown>(null);
+  const toast = useToast();
   return (
     <Modal
-      title={`${task.taskNumber} を割り当て`}
+      title={wave ? `${wave.waveNumber} のタスクをまとめて割り当て` : `${task.taskNumber} を割り当て`}
       onClose={onClose}
       footer={
         <>
@@ -466,7 +478,12 @@ function AssignModal({ task, onClose, onDone }: { task: any; onClose: () => void
             disabled={!userId}
             onClick={async () => {
               try {
-                await post(`/pick-tasks/${task.id}/assign`, { userId });
+                if (wave) {
+                  const r = await post(`/waves/${wave.id}/assign`, { userId, onlyUnassigned });
+                  toast.success(`${r.assigned} 件のタスクを割り当てました`);
+                } else {
+                  await post(`/pick-tasks/${task.id}/assign`, { userId });
+                }
                 onDone();
                 onClose();
               } catch (e) {
@@ -480,6 +497,11 @@ function AssignModal({ task, onClose, onDone }: { task: any; onClose: () => void
       }
     >
       <ErrorBox error={err ?? users.error} />
+      {wave && (
+        <label className="row" style={{ marginBottom: 8 }}>
+          <input type="checkbox" checked={onlyUnassigned} onChange={(e) => setOnlyUnassigned(e.target.checked)} /> 未担当のタスクだけ（外すと担当中のタスクも付け替えます）
+        </label>
+      )}
       <Field label="作業者" htmlFor="assign-user" hint="現在の担当者がいる場合は付け替えます（監査ログに記録）">
         <select id="assign-user" value={userId} onChange={(e) => setUserId(e.target.value)}>
           <option value="">選択</option>
@@ -601,7 +623,7 @@ export function FulfillmentsPage() {
               </tbody>
             </table>
           </div>
-          <Pagination offset={offset} limit={50} total={list.data.total} onChange={setOffset} />
+          <Pagination offset={offset} limit={50} total={list.data.total} capped={list.data.totalCapped} onChange={setOffset} />
         </>
       ) : (
         <EmptyState title="該当する Fulfillment はありません" />

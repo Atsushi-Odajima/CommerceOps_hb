@@ -9,7 +9,9 @@
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",
     "@playwright/test": "^1.56.1",
-    "bwip-js": "^4.11.4"
+    "bwip-js": "^4.11.4",
+    "pg": "^8.23.0",
+    "pngjs": "^7.0.0"
   },
   "license": "UNLICENSED"
 }

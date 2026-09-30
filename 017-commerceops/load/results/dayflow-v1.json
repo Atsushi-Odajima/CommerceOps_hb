@@ -1,0 +1,627 @@
+{
+  "createdAt": "2026-09-30T05:41:28.518Z",
+  "db": "postgres://commerceops:***@localhost:5432/commerceops_load",
+  "results": [
+    {
+      "volume": 50,
+      "totalMs": 3922,
+      "steps": {
+        "import": 134,
+        "allocate": 864,
+        "waves": 130,
+        "pick": 932,
+        "pack": 1131,
+        "ship": 444,
+        "search": 263
+      },
+      "counts": {
+        "importedOrders": 50,
+        "importedLines": 141,
+        "allocFull": 50,
+        "allocPartial": 0,
+        "allocNone": 0,
+        "allocationRuns": 2,
+        "waves": 1,
+        "pickTasks": 1,
+        "shortPicks": 0,
+        "packed": 50,
+        "shipped": 50
+      },
+      "integrity": {
+        "violations": 0,
+        "ms": 926
+      },
+      "api": {
+        "import.preview": {
+          "n": 1,
+          "totalMs": 97,
+          "p50": 96.9,
+          "p95": 96.9,
+          "max": 96.9
+        },
+        "import.commit": {
+          "n": 1,
+          "totalMs": 36,
+          "p50": 36,
+          "p95": 36,
+          "max": 36
+        },
+        "allocation.run_now": {
+          "n": 2,
+          "totalMs": 864,
+          "p50": 859.3,
+          "p95": 859.3,
+          "max": 859.3
+        },
+        "waves.preview": {
+          "n": 3,
+          "totalMs": 13,
+          "p50": 3.5,
+          "p95": 6.6,
+          "max": 6.6
+        },
+        "waves.create": {
+          "n": 1,
+          "totalMs": 116,
+          "p50": 116.4,
+          "p95": 116.4,
+          "max": 116.4
+        },
+        "waves.detail": {
+          "n": 1,
+          "totalMs": 6,
+          "p50": 5.6,
+          "p95": 5.6,
+          "max": 5.6
+        },
+        "pick.claim": {
+          "n": 1,
+          "totalMs": 14,
+          "p50": 14.3,
+          "p95": 14.3,
+          "max": 14.3
+        },
+        "pick.scan_location": {
+          "n": 40,
+          "totalMs": 177,
+          "p50": 4.2,
+          "p95": 6.2,
+          "max": 7
+        },
+        "pick.scan_item": {
+          "n": 40,
+          "totalMs": 738,
+          "p50": 17.4,
+          "p95": 31.7,
+          "max": 35.3
+        },
+        "fulfillments.list": {
+          "n": 2,
+          "totalMs": 12,
+          "p50": 7.8,
+          "p95": 7.8,
+          "max": 7.8
+        },
+        "pack.open": {
+          "n": 50,
+          "totalMs": 743,
+          "p50": 14.1,
+          "p95": 21.3,
+          "max": 29.2
+        },
+        "pack.view": {
+          "n": 50,
+          "totalMs": 387,
+          "p50": 7.4,
+          "p95": 10.9,
+          "max": 14
+        },
+        "pack.scan": {
+          "n": 141,
+          "totalMs": 1313,
+          "p50": 8.9,
+          "p95": 12.9,
+          "max": 15.8
+        },
+        "pack.scan_qty": {
+          "n": 92,
+          "totalMs": 908,
+          "p50": 9.6,
+          "p95": 14.1,
+          "max": 18
+        },
+        "pack.complete": {
+          "n": 50,
+          "totalMs": 1068,
+          "p50": 20.8,
+          "p95": 26.9,
+          "max": 39.1
+        },
+        "ship.tracking": {
+          "n": 50,
+          "totalMs": 315,
+          "p50": 5.5,
+          "p95": 13.3,
+          "max": 15.6
+        },
+        "ship.confirm": {
+          "n": 50,
+          "totalMs": 1429,
+          "p50": 26.7,
+          "p95": 50.6,
+          "max": 57.3
+        },
+        "orders.list": {
+          "n": 1,
+          "totalMs": 5,
+          "p50": 5.5,
+          "p95": 5.5,
+          "max": 5.5
+        },
+        "search.order_number": {
+          "n": 10,
+          "totalMs": 58,
+          "p50": 5.4,
+          "p95": 7.6,
+          "max": 7.6
+        },
+        "search.external_id": {
+          "n": 10,
+          "totalMs": 57,
+          "p50": 5.8,
+          "p95": 7.2,
+          "max": 7.2
+        },
+        "orders.detail": {
+          "n": 10,
+          "totalMs": 103,
+          "p50": 9.1,
+          "p95": 14.3,
+          "max": 14.3
+        },
+        "search.text": {
+          "n": 4,
+          "totalMs": 30,
+          "p50": 7.5,
+          "p95": 8.4,
+          "max": 8.4
+        },
+        "orders.list_default": {
+          "n": 1,
+          "totalMs": 5,
+          "p50": 4.7,
+          "p95": 4.7,
+          "max": 4.7
+        },
+        "orders.status_counts": {
+          "n": 1,
+          "totalMs": 3,
+          "p50": 2.7,
+          "p95": 2.7,
+          "max": 2.7
+        },
+        "dashboard.home": {
+          "n": 1,
+          "totalMs": 6,
+          "p50": 6.5,
+          "p95": 6.5,
+          "max": 6.5
+        }
+      }
+    },
+    {
+      "volume": 500,
+      "totalMs": 34683,
+      "steps": {
+        "import": 545,
+        "allocate": 10218,
+        "waves": 2112,
+        "pick": 6678,
+        "pack": 10785,
+        "ship": 3831,
+        "search": 250
+      },
+      "counts": {
+        "importedOrders": 500,
+        "importedLines": 1528,
+        "allocFull": 500,
+        "allocPartial": 0,
+        "allocNone": 0,
+        "allocationRuns": 2,
+        "waves": 5,
+        "pickTasks": 5,
+        "shortPicks": 0,
+        "packed": 500,
+        "shipped": 500
+      },
+      "integrity": {
+        "violations": 0,
+        "ms": 43
+      },
+      "api": {
+        "import.preview": {
+          "n": 1,
+          "totalMs": 381,
+          "p50": 381.2,
+          "p95": 381.2,
+          "max": 381.2
+        },
+        "import.commit": {
+          "n": 1,
+          "totalMs": 159,
+          "p50": 159.2,
+          "p95": 159.2,
+          "max": 159.2
+        },
+        "allocation.run_now": {
+          "n": 2,
+          "totalMs": 10218,
+          "p50": 10212.4,
+          "p95": 10212.4,
+          "max": 10212.4
+        },
+        "waves.preview": {
+          "n": 7,
+          "totalMs": 116,
+          "p50": 18.9,
+          "p95": 26.8,
+          "max": 26.8
+        },
+        "waves.create": {
+          "n": 5,
+          "totalMs": 1995,
+          "p50": 398.7,
+          "p95": 411.8,
+          "max": 411.8
+        },
+        "waves.detail": {
+          "n": 5,
+          "totalMs": 76,
+          "p50": 14.8,
+          "p95": 20.4,
+          "max": 20.4
+        },
+        "pick.claim": {
+          "n": 5,
+          "totalMs": 214,
+          "p50": 43.3,
+          "p95": 44.7,
+          "max": 44.7
+        },
+        "pick.scan_location": {
+          "n": 200,
+          "totalMs": 1434,
+          "p50": 6.8,
+          "p95": 11.5,
+          "max": 17.9
+        },
+        "pick.scan_item": {
+          "n": 200,
+          "totalMs": 16507,
+          "p50": 81,
+          "p95": 123,
+          "max": 160.5
+        },
+        "fulfillments.list": {
+          "n": 4,
+          "totalMs": 179,
+          "p50": 58,
+          "p95": 59.4,
+          "max": 59.4
+        },
+        "pack.open": {
+          "n": 500,
+          "totalMs": 6509,
+          "p50": 12.3,
+          "p95": 20.2,
+          "max": 35.3
+        },
+        "pack.view": {
+          "n": 500,
+          "totalMs": 5098,
+          "p50": 6.5,
+          "p95": 45.3,
+          "max": 66.8
+        },
+        "pack.scan": {
+          "n": 1528,
+          "totalMs": 12900,
+          "p50": 8,
+          "p95": 13,
+          "max": 29
+        },
+        "pack.scan_qty": {
+          "n": 1006,
+          "totalMs": 8956,
+          "p50": 8.5,
+          "p95": 13.7,
+          "max": 28.1
+        },
+        "pack.complete": {
+          "n": 500,
+          "totalMs": 9535,
+          "p50": 18.4,
+          "p95": 27.4,
+          "max": 44.1
+        },
+        "ship.tracking": {
+          "n": 500,
+          "totalMs": 2534,
+          "p50": 4.8,
+          "p95": 7.7,
+          "max": 13.3
+        },
+        "ship.confirm": {
+          "n": 500,
+          "totalMs": 12733,
+          "p50": 24.3,
+          "p95": 41.9,
+          "max": 61
+        },
+        "orders.list": {
+          "n": 1,
+          "totalMs": 5,
+          "p50": 5.3,
+          "p95": 5.3,
+          "max": 5.3
+        },
+        "search.order_number": {
+          "n": 10,
+          "totalMs": 69,
+          "p50": 7,
+          "p95": 7.4,
+          "max": 7.4
+        },
+        "search.external_id": {
+          "n": 10,
+          "totalMs": 71,
+          "p50": 7.2,
+          "p95": 8,
+          "max": 8
+        },
+        "orders.detail": {
+          "n": 10,
+          "totalMs": 66,
+          "p50": 6.6,
+          "p95": 8.4,
+          "max": 8.4
+        },
+        "search.text": {
+          "n": 4,
+          "totalMs": 28,
+          "p50": 6.9,
+          "p95": 7.6,
+          "max": 7.6
+        },
+        "orders.list_default": {
+          "n": 1,
+          "totalMs": 5,
+          "p50": 5,
+          "p95": 5,
+          "max": 5
+        },
+        "orders.status_counts": {
+          "n": 1,
+          "totalMs": 3,
+          "p50": 2.7,
+          "p95": 2.7,
+          "max": 2.7
+        },
+        "dashboard.home": {
+          "n": 1,
+          "totalMs": 7,
+          "p50": 6.7,
+          "p95": 6.7,
+          "max": 6.7
+        }
+      }
+    },
+    {
+      "volume": 5000,
+      "totalMs": 322905,
+      "steps": {
+        "import": 4774,
+        "allocate": 98943,
+        "waves": 16015,
+        "pick": 49142,
+        "pack": 112541,
+        "ship": 38895,
+        "search": 797
+      },
+      "counts": {
+        "importedOrders": 5000,
+        "importedLines": 14889,
+        "allocFull": 5000,
+        "allocPartial": 0,
+        "allocNone": 0,
+        "allocationRuns": 11,
+        "waves": 50,
+        "pickTasks": 50,
+        "shortPicks": 0,
+        "packed": 5000,
+        "shipped": 5000
+      },
+      "integrity": {
+        "violations": 0,
+        "ms": 283
+      },
+      "api": {
+        "import.preview": {
+          "n": 1,
+          "totalMs": 3183,
+          "p50": 3182.7,
+          "p95": 3182.7,
+          "max": 3182.7
+        },
+        "import.commit": {
+          "n": 1,
+          "totalMs": 1549,
+          "p50": 1548.8,
+          "p95": 1548.8,
+          "max": 1548.8
+        },
+        "allocation.run_now": {
+          "n": 11,
+          "totalMs": 98943,
+          "p50": 6956.1,
+          "p95": 26446.6,
+          "max": 26446.6
+        },
+        "waves.preview": {
+          "n": 52,
+          "totalMs": 541,
+          "p50": 10.5,
+          "p95": 14.1,
+          "max": 15.3
+        },
+        "waves.create": {
+          "n": 50,
+          "totalMs": 15465,
+          "p50": 306.2,
+          "p95": 335.6,
+          "max": 358.1
+        },
+        "waves.detail": {
+          "n": 50,
+          "totalMs": 230,
+          "p50": 4.5,
+          "p95": 5.4,
+          "max": 7.1
+        },
+        "pick.claim": {
+          "n": 50,
+          "totalMs": 1133,
+          "p50": 19.2,
+          "p95": 66.7,
+          "max": 82
+        },
+        "pick.scan_location": {
+          "n": 2000,
+          "totalMs": 16861,
+          "p50": 7.9,
+          "p95": 14.3,
+          "max": 30.1
+        },
+        "pick.scan_item": {
+          "n": 2000,
+          "totalMs": 175956,
+          "p50": 87.1,
+          "p95": 144,
+          "max": 284.9
+        },
+        "fulfillments.list": {
+          "n": 27,
+          "totalMs": 1518,
+          "p50": 55.2,
+          "p95": 101.8,
+          "max": 103.9
+        },
+        "pack.open": {
+          "n": 5000,
+          "totalMs": 67714,
+          "p50": 13,
+          "p95": 18.9,
+          "max": 83.6
+        },
+        "pack.view": {
+          "n": 5000,
+          "totalMs": 39851,
+          "p50": 7.2,
+          "p95": 13.3,
+          "max": 37.8
+        },
+        "pack.scan": {
+          "n": 14889,
+          "totalMs": 135036,
+          "p50": 8.5,
+          "p95": 14,
+          "max": 86.4
+        },
+        "pack.scan_qty": {
+          "n": 9905,
+          "totalMs": 97622,
+          "p50": 9.1,
+          "p95": 15.9,
+          "max": 86.7
+        },
+        "pack.complete": {
+          "n": 5000,
+          "totalMs": 109121,
+          "p50": 21,
+          "p95": 30.7,
+          "max": 60.4
+        },
+        "ship.tracking": {
+          "n": 5000,
+          "totalMs": 24809,
+          "p50": 4.7,
+          "p95": 7.3,
+          "max": 81.2
+        },
+        "ship.confirm": {
+          "n": 5000,
+          "totalMs": 130582,
+          "p50": 24.2,
+          "p95": 45.4,
+          "max": 117.1
+        },
+        "orders.list": {
+          "n": 1,
+          "totalMs": 19,
+          "p50": 19.3,
+          "p95": 19.3,
+          "max": 19.3
+        },
+        "search.order_number": {
+          "n": 10,
+          "totalMs": 287,
+          "p50": 27.9,
+          "p95": 34,
+          "max": 34
+        },
+        "search.external_id": {
+          "n": 10,
+          "totalMs": 302,
+          "p50": 30.5,
+          "p95": 32,
+          "max": 32
+        },
+        "orders.detail": {
+          "n": 10,
+          "totalMs": 67,
+          "p50": 6.7,
+          "p95": 7.9,
+          "max": 7.9
+        },
+        "search.text": {
+          "n": 4,
+          "totalMs": 109,
+          "p50": 28.2,
+          "p95": 28.3,
+          "max": 28.3
+        },
+        "orders.list_default": {
+          "n": 1,
+          "totalMs": 10,
+          "p50": 10.4,
+          "p95": 10.4,
+          "max": 10.4
+        },
+        "orders.status_counts": {
+          "n": 1,
+          "totalMs": 3,
+          "p50": 3.3,
+          "p95": 3.3,
+          "max": 3.3
+        },
+        "dashboard.home": {
+          "n": 1,
+          "totalMs": 17,
+          "p50": 16.9,
+          "p95": 16.9,
+          "max": 16.9
+        }
+      }
+    }
+  ]
+}

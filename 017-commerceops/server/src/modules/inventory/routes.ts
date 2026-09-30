@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { assertWarehouse, orgTx, perm, requireOrg } from '../../http.js';
 import { badRequest, notFound } from '../../lib/errors.js';
+import { cappedCount } from '../../lib/pagination.js';
 import { parse, zPage } from '../../lib/validate.js';
 import { readUpload } from '../../lib/upload.js';
 import { audit } from '../audit/audit.js';
@@ -26,7 +27,14 @@ export async function inventoryRoutes(app: FastifyInstance) {
     if (q.warehouseId) assertWarehouse(req, q.warehouseId);
     return orgTx(req, async (tx) => {
       const params: unknown[] = [tx.orgId, q.warehouseId ?? null, q.q ?? null, auth.warehouseIds];
+      // 未引当の需要は、引当待ちの注文（全体のごく一部）だけを 1 回集計して商品ごとに結合する（商品ごとに全明細を数えない）
       const base = `
+        WITH demand AS (
+          SELECT oi.product_id, SUM(oi.quantity - oi.cancelled_qty - oi.shipped_qty - oi.allocated_qty)::int AS qty
+            FROM orders o JOIN order_items oi ON oi.organization_id = o.organization_id AND oi.order_id = o.id
+           WHERE o.organization_id = $1 AND o.status IN ('ready_for_allocation', 'partially_allocated', 'partially_shipped') AND oi.product_id IS NOT NULL
+           GROUP BY oi.product_id
+        )
         SELECT p.id AS product_id, p.sku, p.name, p.variant, w.id AS warehouse_id, w.code AS warehouse_code,
                COALESCE(SUM(ib.on_hand) FILTER (WHERE l.kind = 'pick'), 0)::int AS on_hand,
                COALESCE(SUM(ib.allocated) FILTER (WHERE l.kind = 'pick'), 0)::int AS allocated,
@@ -34,14 +42,12 @@ export async function inventoryRoutes(app: FastifyInstance) {
                COALESCE(SUM(ib.on_hand - ib.allocated - ib.held) FILTER (WHERE l.kind = 'pick' AND l.active), 0)::int AS available,
                COALESCE(SUM(ib.on_hand) FILTER (WHERE l.kind = 'quarantine'), 0)::int AS quarantine,
                COALESCE(SUM(ib.on_hand) FILTER (WHERE l.kind = 'damaged'), 0)::int AS damaged,
-               (SELECT COALESCE(SUM(oi.quantity - oi.cancelled_qty - oi.shipped_qty - oi.allocated_qty), 0)::int FROM order_items oi
-                  JOIN orders o ON o.organization_id = oi.organization_id AND o.id = oi.order_id
-                 WHERE oi.organization_id = p.organization_id AND oi.product_id = p.id
-                   AND o.status IN ('ready_for_allocation', 'partially_allocated', 'partially_shipped')) AS unallocated_demand
+               COALESCE(MAX(d.qty), 0)::int AS unallocated_demand
           FROM inventory_balances ib
           JOIN products p ON p.organization_id = ib.organization_id AND p.id = ib.product_id
           JOIN locations l ON l.organization_id = ib.organization_id AND l.id = ib.location_id
           JOIN warehouses w ON w.organization_id = ib.organization_id AND w.id = ib.warehouse_id
+          LEFT JOIN demand d ON d.product_id = p.id
          WHERE ib.organization_id = $1 AND ($2::uuid IS NULL OR ib.warehouse_id = $2)
            AND ($3::text IS NULL OR p.sku ILIKE '%' || $3 || '%' OR p.name ILIKE '%' || $3 || '%')
            AND ($4::uuid[] IS NULL OR ib.warehouse_id = ANY($4))
@@ -110,7 +116,7 @@ export async function inventoryRoutes(app: FastifyInstance) {
       const params: unknown[] = [tx.orgId, q.productId ?? null, q.warehouseId ?? null, q.type ?? null, auth.warehouseIds];
       const where = `m.organization_id = $1 AND ($2::uuid IS NULL OR m.product_id = $2) AND ($3::uuid IS NULL OR m.warehouse_id = $3)
                      AND ($4::text IS NULL OR m.movement_type = $4) AND ($5::uuid[] IS NULL OR m.warehouse_id = ANY($5))`;
-      const total = (await tx.one(`SELECT count(*)::int AS n FROM inventory_movements m WHERE ${where}`, params)).n;
+      const { total, totalCapped } = await cappedCount(tx, `FROM inventory_movements m WHERE ${where}`, params);
       params.push(q.limit, q.offset);
       const rows = await tx.many(
         `SELECT m.*, p.sku, l.code AS location_code, w.code AS warehouse_code, u.name AS actor_name
@@ -124,6 +130,7 @@ export async function inventoryRoutes(app: FastifyInstance) {
       );
       return {
         total,
+        totalCapped,
         items: rows.map((m) => ({
           id: m.id,
           type: m.movement_type,
@@ -195,7 +202,13 @@ export async function inventoryRoutes(app: FastifyInstance) {
       if (!loc) throw notFound('ロケーション');
       assertWarehouse(req, loc.warehouse_id);
       const r = await transferStock(tx, body);
-      await audit(tx, { action: 'inventory.transfer', entityType: 'product', entityId: body.productId, summary: `ロケーション移動 ${body.qty}`, metadata: { qty: body.qty } });
+      await audit(tx, {
+        action: 'inventory.transfer',
+        entityType: 'product',
+        entityId: body.productId,
+        summary: `ロケーション移動 ${body.qty}${r.fromKind !== r.toKind ? `（${r.fromKind} → ${r.toKind}）` : ''}`,
+        metadata: { qty: body.qty, fromKind: r.fromKind, toKind: r.toKind }, // 理由の本文は在庫移動の行に残す（監査ログには自由記述を入れない）
+      });
       return r;
     });
   });

@@ -6,6 +6,7 @@ import { ErrorBox, Field, Loading, useToast } from '../../components/ui';
 
 export default function OrgSettingsPage() {
   const q = useQuery({ queryKey: ['org'], queryFn: () => get('/org') });
+  const carriers = useQuery({ queryKey: ['shipments-meta'], queryFn: () => get('/shipments/meta') });
   const qc = useQueryClient();
   const { refresh } = useAuth();
   const toast = useToast();
@@ -95,6 +96,16 @@ export default function OrgSettingsPage() {
             <input type="checkbox" checked={s.shipping.requireTracking} onChange={(e) => set(['settings', 'shipping', 'requireTracking'], e.target.checked)} />
             出荷確定時に追跡番号を必須にする（追跡なしの配送は個別に「追跡番号なし」を選択）
           </label>
+          <Field label="既定の配送会社" htmlFor="default-carrier" hint="追跡番号 CSV の取込で「配送会社」が空欄の行に使います">
+            <select id="default-carrier" value={s.shipping.defaultCarrier ?? ''} onChange={(e) => set(['settings', 'shipping', 'defaultCarrier'], e.target.value || undefined)}>
+              <option value="">指定しない</option>
+              {(carriers.data?.carriers ?? []).map((c: { value: string; label: string }) => (
+                <option key={c.value} value={c.value}>
+                  {c.label}
+                </option>
+              ))}
+            </select>
+          </Field>
         </div>
       </div>
       <button className="btn btn-primary" disabled={busy}>

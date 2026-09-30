@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { hasPerm, orgTx, requireOrg } from '../../http.js';
 import { parse } from '../../lib/validate.js';
 import { normalizeTracking } from '../shipments/service.js';
+import { gtinVariants } from '../products/routes.js';
 
 const likeEscape = (s: string) => s.replace(/[\\%_]/g, (m) => '\\' + m);
 
@@ -30,27 +31,40 @@ export async function searchRoutes(app: FastifyInstance) {
       if (can('orders.read')) {
         const shipTo = can('orders.read_ship_to');
         const pii = can('orders.read_pii');
+        // 条件ごとに索引を使う問い合わせを分け（1 つの OR にすると全件走査になる）、各 20 件までで打ち切ってから結合する
         const rows = await tx.many(
-          `SELECT o.id, o.order_number, o.external_order_id, o.status, o.order_date, o.order_type, c.name AS channel_name,
-                  CASE WHEN $6 THEN o.recipient_name END AS recipient_name,
-                  CASE
-                    WHEN o.order_number = $2 OR upper(o.external_order_id) = $2 THEN '注文番号'
-                    WHEN $5::text IS NOT NULL AND EXISTS (SELECT 1 FROM shipments s WHERE s.organization_id = o.organization_id AND s.order_id = o.id AND s.tracking_number = $5) THEN '追跡番号'
-                    WHEN $6 AND o.postal_code = $4 THEN '郵便番号'
-                    WHEN $6 AND $3::text IS NOT NULL AND o.recipient_name ILIKE $3 THEN '送付先氏名'
-                    WHEN $7 AND $3::text IS NOT NULL AND o.customer_name ILIKE $3 THEN '購入者名'
-                    ELSE 'SKU・商品名' END AS matched
-             FROM orders o JOIN sales_channels c ON c.organization_id = o.organization_id AND c.id = o.channel_id
-            WHERE o.organization_id = $1 AND (
-                  o.order_number = $2 OR upper(o.external_order_id) = $2
-               OR ($5::text IS NOT NULL AND EXISTS (SELECT 1 FROM shipments s WHERE s.organization_id = o.organization_id AND s.order_id = o.id AND s.tracking_number = $5))
-               OR ($6 AND $4::text IS NOT NULL AND o.postal_code = $4)
-               OR ($6 AND $3::text IS NOT NULL AND o.recipient_name ILIKE $3)
-               OR ($7 AND $3::text IS NOT NULL AND o.customer_name ILIKE $3)
-               OR EXISTS (SELECT 1 FROM order_items oi WHERE oi.organization_id = o.organization_id AND oi.order_id = o.id AND (upper(oi.sku) = $2 OR ($3::text IS NOT NULL AND oi.product_name ILIKE $3))))
-            ORDER BY (o.order_number = $2 OR upper(o.external_order_id) = $2) DESC, o.order_date DESC
+          `WITH hits AS (
+             SELECT id, 1 AS rank, '注文番号' AS matched FROM orders WHERE organization_id = $1 AND order_number = $2
+             UNION ALL
+             SELECT id, 1, '注文番号' FROM orders WHERE organization_id = $1 AND external_order_id IN ($8, $2)
+             UNION ALL
+             SELECT order_id, 2, '追跡番号' FROM shipments WHERE $5::text IS NOT NULL AND organization_id = $1 AND tracking_number = $5
+             UNION ALL
+             (SELECT id, 3, '郵便番号' FROM orders WHERE $6 AND $4::text IS NOT NULL AND organization_id = $1 AND postal_code = $4 ORDER BY order_date DESC LIMIT 20)
+             UNION ALL
+             -- 氏名: 姓からの前方一致は全期間（索引）、部分一致（名だけ等）は直近 1 万件の注文から（RLS の下では LIKE に索引が使えないため範囲を限定）
+             (SELECT id, 4, '送付先氏名' FROM orders WHERE $6 AND $3::text IS NOT NULL AND organization_id = $1 AND recipient_name ^@ $8 ORDER BY order_date DESC LIMIT 20)
+             UNION ALL
+             (SELECT id, 5, '購入者名' FROM orders WHERE $7 AND $3::text IS NOT NULL AND organization_id = $1 AND customer_name ^@ $8 ORDER BY order_date DESC LIMIT 20)
+             UNION ALL
+             (SELECT id, 4, '送付先氏名' FROM (SELECT id, order_date, recipient_name FROM orders WHERE $6 AND $3::text IS NOT NULL AND organization_id = $1 ORDER BY order_date DESC LIMIT 10000) r
+               WHERE recipient_name ILIKE $3 ORDER BY order_date DESC LIMIT 20)
+             UNION ALL
+             (SELECT id, 5, '購入者名' FROM (SELECT id, order_date, customer_name FROM orders WHERE $7 AND $3::text IS NOT NULL AND organization_id = $1 ORDER BY order_date DESC LIMIT 10000) c
+               WHERE customer_name ILIKE $3 ORDER BY order_date DESC LIMIT 20)
+             UNION ALL
+             (SELECT order_id, 6, 'SKU' FROM order_items WHERE organization_id = $1 AND sku IN ($8, $2) ORDER BY created_at DESC LIMIT 20)
+           ), best AS (
+             SELECT id, min(rank) AS rank, (array_agg(matched ORDER BY rank))[1] AS matched FROM hits GROUP BY id
+           )
+           SELECT o.id, o.order_number, o.external_order_id, o.status, o.order_date, o.order_type, c.name AS channel_name,
+                  CASE WHEN $6 THEN o.recipient_name END AS recipient_name, b.matched
+             FROM best b
+             JOIN orders o ON o.organization_id = $1 AND o.id = b.id
+             JOIN sales_channels c ON c.organization_id = o.organization_id AND c.id = o.channel_id
+            ORDER BY b.rank, o.order_date DESC
             LIMIT 20`,
-          [tx.orgId, upper, fuzzy, postal, tracking, shipTo, pii],
+          [tx.orgId, upper, fuzzy, postal, tracking, shipTo, pii, q],
         );
         out.orders = rows.map((r) => ({
           id: r.id,
@@ -68,9 +82,9 @@ export async function searchRoutes(app: FastifyInstance) {
         const rows = await tx.many(
           `SELECT p.id, p.sku, p.name, p.variant, p.active FROM products p
             WHERE p.organization_id = $1 AND (upper(p.sku) = $2 OR ($3::text IS NOT NULL AND (p.sku ILIKE $3 OR p.name ILIKE $3))
-               OR EXISTS (SELECT 1 FROM product_barcodes b WHERE b.organization_id = p.organization_id AND b.product_id = p.id AND b.code = $4))
+               OR EXISTS (SELECT 1 FROM product_barcodes b WHERE b.organization_id = p.organization_id AND b.product_id = p.id AND b.code = ANY($4::text[])))
             ORDER BY (upper(p.sku) = $2) DESC, p.sku LIMIT 20`,
-          [tx.orgId, upper, fuzzy, q],
+          [tx.orgId, upper, fuzzy, gtinVariants(q)],
         );
         out.products = rows.map((r) => ({ id: r.id, sku: r.sku, name: r.name, variant: r.variant, active: r.active }));
       }

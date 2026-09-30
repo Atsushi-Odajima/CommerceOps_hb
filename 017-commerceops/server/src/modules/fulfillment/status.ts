@@ -5,7 +5,9 @@ import type { Tx } from '../../db/tx.js';
  * shipped > packed(梱包完了) > packing(梱包セッション中) > picked(全数ピック済) > picking(実績あり) > waved > ready
  */
 export async function refreshFulfillmentStatus(tx: Tx, fulfillmentId: string): Promise<string> {
-  const f = await tx.maybeOne(`SELECT id, status, wave_id FROM fulfillments WHERE organization_id = $1 AND id = $2 FOR UPDATE`, [tx.orgId, fulfillmentId]);
+  // FOR NO KEY UPDATE: 状態列だけを更新するため。子行（pick_events 等）の INSERT が外部キー検査で取る KEY SHARE ロックと衝突せず、
+  // 「両方が KEY SHARE を持ったまま FOR UPDATE を待つ」デッドロックを起こさない（状態更新どうしは引き続き直列化される）
+  const f = await tx.maybeOne(`SELECT id, status, wave_id FROM fulfillments WHERE organization_id = $1 AND id = $2 FOR NO KEY UPDATE`, [tx.orgId, fulfillmentId]);
   if (!f || f.status === 'cancelled') return f?.status ?? 'cancelled';
   const agg = await tx.one(
     `SELECT COALESCE(SUM(required_qty), 0)::int AS required, COALESCE(SUM(picked_qty), 0)::int AS picked,
@@ -44,7 +46,7 @@ export async function refreshFulfillmentStatus(tx: Tx, fulfillmentId: string): P
 
 /** Wave の状態: 全タスク完了で picked、全 Fulfillment が梱包済み以降で completed */
 export async function refreshWaveStatus(tx: Tx, waveId: string): Promise<string> {
-  const w = await tx.maybeOne(`SELECT id, status FROM waves WHERE organization_id = $1 AND id = $2 FOR UPDATE`, [tx.orgId, waveId]);
+  const w = await tx.maybeOne(`SELECT id, status FROM waves WHERE organization_id = $1 AND id = $2 FOR NO KEY UPDATE`, [tx.orgId, waveId]); // 理由は refreshFulfillmentStatus と同じ
   if (!w || w.status === 'cancelled') return w?.status ?? 'cancelled';
   const t = await tx.one(
     `SELECT count(*)::int AS total, count(*) FILTER (WHERE status IN ('completed', 'cancelled'))::int AS done,

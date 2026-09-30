@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { assertWarehouse, hasPerm, orgTx, perm, requireOrg } from '../../http.js';
 import { forbidden, notFound } from '../../lib/errors.js';
+import { cappedCount } from '../../lib/pagination.js';
 import { IdParams, parse, zPage } from '../../lib/validate.js';
 import { cancelWave, createWave, previewWave } from './service.js';
 import { claimTask, correctPick, pickScan, releaseTask, scanLocation, shortPick, SHORT_REASONS, taskView } from '../picking/service.js';
@@ -32,7 +33,7 @@ export async function waveRoutes(app: FastifyInstance) {
         AND ($6::text IS NULL OR (f.due_at < now() AND f.status NOT IN ('shipped', 'cancelled')))
         AND ($7::text IS NULL OR f.fulfillment_number = $7 OR o.order_number = $7 OR o.external_order_id = $7)
         AND ($8::uuid[] IS NULL OR f.warehouse_id = ANY($8))`;
-      const total = (await tx.one(`SELECT count(*)::int AS n FROM fulfillments f JOIN orders o ON o.organization_id = f.organization_id AND o.id = f.order_id WHERE ${where}`, params)).n;
+      const { total, totalCapped } = await cappedCount(tx, `FROM fulfillments f JOIN orders o ON o.organization_id = f.organization_id AND o.id = f.order_id WHERE ${where}`, params);
       params.push(q.limit, q.offset);
       const rows = await tx.many(
         `SELECT f.*, o.order_number, o.external_order_id, w.code AS warehouse_code, wv.wave_number,
@@ -50,6 +51,7 @@ export async function waveRoutes(app: FastifyInstance) {
       );
       return {
         total,
+        totalCapped,
         items: rows.map((f) => ({
           id: f.id,
           fulfillmentNumber: f.fulfillment_number,
@@ -131,13 +133,21 @@ export async function waveRoutes(app: FastifyInstance) {
       const where = `w.organization_id = $1 AND ($2::text IS NULL OR w.status = $2) AND ($3::uuid IS NULL OR w.warehouse_id = $3) AND ($4::uuid[] IS NULL OR w.warehouse_id = ANY($4))`;
       const total = (await tx.one(`SELECT count(*)::int AS n FROM waves w WHERE ${where}`, params)).n;
       params.push(q.limit, q.offset);
+      // 先に 1 ページ分の Wave を決めてから、その分だけ Pick 進捗を集計する（全 Wave を集計しない）
       const rows = await tx.many(
-        `SELECT w.*, wh.code AS warehouse_code, u.name AS created_by_name,
-                (SELECT COALESCE(SUM(picked_qty), 0)::int FROM pick_task_lines l WHERE l.organization_id = w.organization_id AND l.wave_id = w.id) AS picked_units,
-                (SELECT COALESCE(SUM(short_qty), 0)::int FROM pick_task_lines l WHERE l.organization_id = w.organization_id AND l.wave_id = w.id) AS short_units
-           FROM waves w JOIN warehouses wh ON wh.organization_id = w.organization_id AND wh.id = w.warehouse_id
+        `WITH page AS (
+           SELECT w.id FROM waves w WHERE ${where}
+            ORDER BY (w.status IN ('completed', 'cancelled')), w.created_at DESC LIMIT $5 OFFSET $6
+         )
+         SELECT w.*, wh.code AS warehouse_code, u.name AS created_by_name, pr.picked_units, pr.short_units
+           FROM page JOIN waves w ON w.organization_id = $1 AND w.id = page.id
+           JOIN warehouses wh ON wh.organization_id = w.organization_id AND wh.id = w.warehouse_id
            LEFT JOIN users u ON u.id = w.created_by
-          WHERE ${where} ORDER BY (w.status IN ('completed', 'cancelled')), w.created_at DESC LIMIT $5 OFFSET $6`,
+           LEFT JOIN LATERAL (
+             SELECT COALESCE(SUM(l.picked_qty), 0)::int AS picked_units, COALESCE(SUM(l.short_qty), 0)::int AS short_units
+               FROM pick_task_lines l WHERE l.organization_id = w.organization_id AND l.wave_id = w.id
+           ) pr ON true
+          ORDER BY (w.status IN ('completed', 'cancelled')), w.created_at DESC`,
         params,
       );
       return {

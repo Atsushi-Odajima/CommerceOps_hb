@@ -22,6 +22,8 @@ export interface ExportSummary {
   users: number;
   memberships: number;
   files: number;
+  /** 保存先にファイルが見つからなかった写真の数（バックアップには「欠落」として記録される） */
+  missingFiles: number;
   sha256: string;
 }
 
@@ -101,8 +103,10 @@ export async function* exportOrganizationLines(
     await client.query('COMMIT');
     inTx = false;
     let files = 0;
+    let missingFiles = 0;
     for (const a of attachments) {
       const data = await storage.get(a.storage_key);
+      if (!data) missingFiles++;
       yield emit(data ? { type: 'file', id: a.id, sha256: a.sha256, data: data.toString('base64') } : { type: 'file', id: a.id, sha256: a.sha256, missing: true });
       files++;
     }
@@ -116,7 +120,7 @@ export async function* exportOrganizationLines(
       sha256: all.digest('hex'),
     };
     yield JSON.stringify(trailer) + '\n';
-    await onDone?.({ counts, users: members.length, memberships: members.length, files, sha256: trailer.sha256 });
+    await onDone?.({ counts, users: members.length, memberships: members.length, files, missingFiles, sha256: trailer.sha256 });
   } finally {
     // 途中で中断された（例外・ダウンロード中止）場合も、トランザクションを閉じてから接続を返す
     if (inTx) await client.query('ROLLBACK').catch(() => undefined);

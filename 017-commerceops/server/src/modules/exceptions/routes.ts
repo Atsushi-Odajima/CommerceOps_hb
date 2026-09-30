@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { assertWarehouse, canAccessWarehouse, hasPerm, orgTx, perm, requireOrg } from '../../http.js';
 import { badRequest, forbidden, notFound } from '../../lib/errors.js';
 import { contentDisposition, encodeCsv, toCsv } from '../../lib/csv.js';
+import { cappedCount } from '../../lib/pagination.js';
 import { IdParams, parse, zPage } from '../../lib/validate.js';
 import { audit } from '../audit/audit.js';
 import { isRole, permissionsFor } from '../../auth/permissions.js';
@@ -210,7 +211,7 @@ export async function exceptionRoutes(app: FastifyInstance) {
     if (q.warehouseId) assertWarehouse(req, q.warehouseId);
     return orgTx(req, async (tx) => {
       const { where, params } = buildWhere(auth, q, tx.orgId);
-      const total = (await tx.one(`SELECT count(*)::int AS n FROM exception_cases e LEFT JOIN orders o ON o.organization_id = e.organization_id AND o.id = e.order_id WHERE ${where}`, params)).n;
+      const { total, totalCapped } = await cappedCount(tx, `FROM exception_cases e LEFT JOIN orders o ON o.organization_id = e.organization_id AND o.id = e.order_id WHERE ${where}`, params);
       const counts = await tx.many(
         `SELECT status, type, count(*)::int AS n FROM exception_cases e WHERE e.organization_id = $1 AND ($2::uuid[] IS NULL OR e.warehouse_id IS NULL OR e.warehouse_id = ANY($2))
           GROUP BY status, type`,
@@ -229,7 +230,7 @@ export async function exceptionRoutes(app: FastifyInstance) {
         byStatus[c.status] = (byStatus[c.status] ?? 0) + c.n;
         if (c.status === 'open' || c.status === 'investigating') activeByType[c.type] = (activeByType[c.type] ?? 0) + c.n;
       }
-      return { total, counts: { ...byStatus, active: (byStatus.open ?? 0) + (byStatus.investigating ?? 0) }, activeByType, items: rows.map(presentException) };
+      return { total, totalCapped, counts: { ...byStatus, active: (byStatus.open ?? 0) + (byStatus.investigating ?? 0) }, activeByType, items: rows.map(presentException) };
     });
   });
 
@@ -239,7 +240,7 @@ export async function exceptionRoutes(app: FastifyInstance) {
     const q = parse(listQuery.extend({ encoding: z.enum(['utf-8', 'shift_jis']).default('utf-8') }), req.query);
     const { text, count } = await orgTx(req, async (tx) => {
       const { where, params } = buildWhere(auth, q, tx.orgId);
-      const rows = await tx.many(`${EXC_SELECT} WHERE ${where} ORDER BY e.created_at DESC LIMIT 50000`, params);
+      const rows = await tx.many(`${EXC_SELECT} WHERE ${where} ORDER BY e.created_at DESC LIMIT 100000`, params);
       const fmt = (d: Date | null) => (d ? new Intl.DateTimeFormat('sv-SE', { timeZone: auth.org.timezone, dateStyle: 'short', timeStyle: 'short' }).format(new Date(d)) : '');
       const csv = toCsv(
         ['例外番号', '種類', '状態', '重要度', '件名', '注文番号', '出荷作業', '荷物', '返品', '倉庫', 'SKU', '担当', '作成日時', '解決日時', '解決方法', '解決メモ', '無視の理由'],

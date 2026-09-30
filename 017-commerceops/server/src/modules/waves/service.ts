@@ -193,7 +193,7 @@ export async function cancelWave(tx: Tx, deps: Pick<AppDeps, 'numberingPool'>, w
     throw conflict('WAVE_PACKING_STARTED', '梱包が始まった Fulfillment を含む Wave は取消できません');
   }
   if (members.some((f) => f.has_short)) {
-    throw conflict('SHORT_UNRESOLVED', '未解決の Short Pick があります。先に例外キューで解決してください');
+    throw conflict('SHORT_UNRESOLVED', '未解決の Short Pick があります。先に Fulfillment 画面の「Short を解決」で処理してください');
   }
   const picked = await tx.many(
     `SELECT l.picked_qty, l.fulfillment_id, p.sku, loc.code AS location FROM pick_task_lines l

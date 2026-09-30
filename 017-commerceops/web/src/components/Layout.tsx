@@ -26,6 +26,7 @@ import {
   IconWave,
 } from './icons';
 import { UpdatePrompt } from '../pwa/UpdatePrompt';
+import { ChangePasswordButton } from './ChangePassword';
 
 interface NavItem {
   to: string;
@@ -142,9 +143,12 @@ export function Layout() {
               ))}
             </select>
           )}
-          <button className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => void logout().then(() => nav('/login'))}>
-            <IconLogout /> ログアウト
-          </button>
+          <div className="row" style={{ marginTop: 8, gap: 6, flexWrap: 'wrap' }}>
+            <ChangePasswordButton />
+            <button className="btn btn-sm" onClick={() => void logout().then(() => nav('/login'))}>
+              <IconLogout /> ログアウト
+            </button>
+          </div>
         </div>
       </aside>
       {open && <div className="scrim" onClick={() => setOpen(false)} />}
@@ -205,6 +209,7 @@ export function Layout() {
             {me.user.name}
             <span className="muted">（{me.roleLabel}）</span>
           </span>
+          <ChangePasswordButton className="btn btn-ghost btn-sm topbar-extra topbar-wide" />
           <button className="btn btn-ghost btn-sm topbar-extra" onClick={() => void logout().then(() => nav('/login'))} aria-label="ログアウト">
             <IconLogout />
           </button>

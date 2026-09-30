@@ -131,6 +131,70 @@ describe('Phase4 wave & picking (R06–R09)', () => {
     await expectIntegrity(env, s.orgId);
   });
 
+  it('R08 (race): the SAME scan sent 4 times at once as the first attempt counts once; the late copies get the original result, not WRONG_SKU / TASK_CLOSED', async () => {
+    const s = await setupBasicOrg(env);
+    const locs = await locationsOf(s.owner.client, s.warehouseId);
+    await receive(s.owner.client, locs['A-01']!, s.products['SKU-A']!, 10);
+    await allocatedOrder(s.owner.client, s.channelId, 'W8R-1', [{ sku: 'SKU-A', quantity: 3 }]);
+    const { wave } = await makeWave(s.owner.client, s.warehouseId);
+    const taskId = expectStatus(await s.owner.client.get(`/api/waves/${wave.waveId}`), 200).body.tasks[0].id;
+    const picker = await addMember(env, s.orgId, 'picker');
+    const g = expectStatus(await picker.client.post(`/api/pick-tasks/${taskId}/claim`), 200).body.groups[0];
+    // 全数（3 個）を 1 回で読む scan を、初回から 4 本同時に送る（タスクも完了する）
+    const body = { clientEventId: randomUUID(), locationId: g.locationId, code: 'JAN-SKU-A', qty: 3, inputMethod: 'scanner' };
+    const rs = await Promise.all([1, 2, 3, 4].map(() => picker.client.post(`/api/pick-tasks/${taskId}/pick`, body)));
+    expect(rs.map((r) => r.status)).toEqual([200, 200, 200, 200]);
+    expect(rs.filter((r) => !r.body.duplicate)).toHaveLength(1);
+    expect(rs.filter((r) => r.body.duplicate).every((r) => r.body.ok === true && r.body.picked === 3)).toBe(true);
+    const ev = await env.tx(s.orgId, (tx) =>
+      tx.many(`SELECT event_type, qty FROM pick_events WHERE organization_id = $1 AND pick_task_id = $2 AND event_type <> 'location_ok'`, [s.orgId, taskId]),
+    );
+    expect(ev).toEqual([{ event_type: 'pick', qty: 3 }]); // 誤 scan・数量過多の記録は無い
+    const t = expectStatus(await s.owner.client.get(`/api/pick-tasks/${taskId}`), 200).body;
+    expect(t.status).toBe('completed');
+    expect(t.groups[0].picked).toBe(3);
+    await expectIntegrity(env, s.orgId);
+  });
+
+  it('two pickers picking tasks that share the same fulfillments at the same time: no conflicts or deadlock failures, quantities exact', async () => {
+    const s = await setupBasicOrg(env);
+    const locs = await locationsOf(s.owner.client, s.warehouseId);
+    await receive(s.owner.client, locs['A-01']!, s.products['SKU-A']!, 50);
+    await receive(s.owner.client, locs['A-02']!, s.products['SKU-B']!, 50);
+    for (let i = 0; i < 8; i++) {
+      await allocatedOrder(s.owner.client, s.channelId, `SH-${i}`, [
+        { sku: 'SKU-A', quantity: 1 + (i % 2) },
+        { sku: 'SKU-B', quantity: 1 },
+      ]);
+    }
+    // 1 タスク 1 行ずつに分ける → 各注文の明細が別々のタスクに入る
+    const { wave } = await makeWave(s.owner.client, s.warehouseId, { splitMode: 'lines', linesPerTask: 1 });
+    const tasks = expectStatus(await s.owner.client.get(`/api/waves/${wave.waveId}`), 200).body.tasks as { id: string }[];
+    expect(tasks.length).toBe(16);
+    const pickers = [await addMember(env, s.orgId, 'picker'), await addMember(env, s.orgId, 'picker'), await addMember(env, s.orgId, 'picker')];
+    const statuses: number[] = [];
+    await Promise.all(
+      pickers.map(async (p, w) => {
+        for (const [i, t] of tasks.entries()) {
+          if (i % pickers.length !== w) continue;
+          const v = expectStatus(await p.client.post(`/api/pick-tasks/${t.id}/claim`), 200).body;
+          for (const g of v.groups) {
+            const body = { clientEventId: randomUUID(), locationId: g.locationId, code: g.sku, qty: g.remaining, inputMethod: 'manual' };
+            // 再送も同時に混ぜる
+            const rs = await Promise.all([p.client.post(`/api/pick-tasks/${t.id}/pick`, body), p.client.post(`/api/pick-tasks/${t.id}/pick`, body)]);
+            statuses.push(...rs.map((r) => r.status));
+          }
+        }
+      }),
+    );
+    expect(statuses.every((x) => x === 200)).toBe(true);
+    const w = expectStatus(await s.owner.client.get(`/api/waves/${wave.waveId}`), 200).body;
+    expect(w.status).toBe('picked');
+    const lines = await env.tx(s.orgId, (tx) => tx.one(`SELECT count(*) FILTER (WHERE picked_qty <> required_qty)::int AS bad FROM pick_task_lines WHERE organization_id = $1 AND wave_id = $2`, [s.orgId, wave.waveId]));
+    expect(lines.bad).toBe(0);
+    await expectIntegrity(env, s.orgId);
+  });
+
   it('pick correction adds a negative event (history kept) and reopens the line', async () => {
     const s = await setupBasicOrg(env);
     const locs = await locationsOf(s.owner.client, s.warehouseId);

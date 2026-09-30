@@ -299,7 +299,7 @@ function ProductImportModal({ onClose }: { onClose: () => void }) {
     <Modal title="商品 CSV 取込" onClose={onClose} footer={<button className="btn" onClick={onClose}>閉じる</button>}>
       <p className="small">
         列: <code>sku,name,variant,group_code,barcodes,weight_g,image_url,active</code>（barcodes は <code>|</code> 区切り）。
-        全行が正しい場合のみ登録します（SKU が既存なら更新）。テンプレートは購入者資料の「products_template.csv」。
+        全行が正しい場合のみ登録します（SKU が既存なら更新）。テンプレートは購入者資料「CSVテンプレート/商品CSVテンプレート.csv」。
       </p>
       <ErrorBox error={err} />
       <div className="inline-fields">

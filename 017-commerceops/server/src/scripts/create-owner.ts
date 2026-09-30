@@ -42,7 +42,7 @@ async function main() {
     });
     console.log(`organization: ${r.organizationId}`);
     console.log(`owner:        ${values.email}`);
-    if (!values.password) console.log(`password:     ${password}   ← この表示は一度だけです。ログイン後に変更してください。`);
+    if (!values.password) console.log(`password:     ${password}   ← この表示は一度だけです。ログイン後、画面右上（狭い画面ではメニュー下部）の「パスワード変更」で変更してください。`);
   } finally {
     await pool.end();
   }

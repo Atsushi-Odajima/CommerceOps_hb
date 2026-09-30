@@ -60,12 +60,23 @@ async function remove(id: string) {
   await withStore('readwrite', (s) => s.delete(id));
 }
 
-let syncing = false;
 
 /** 未同期の scan を送信。ネットワーク不通なら中断して残す。サーバーが拒否したものは結果として返し削除する */
-export async function flushQueue(): Promise<SyncResult[]> {
-  if (syncing || !navigator.onLine) return [];
-  syncing = true;
+let inflight: Promise<SyncResult[]> | null = null;
+
+/**
+ * 未同期の読取を送信する。画面の枠（MobileShell）と Pick 画面の両方が再接続を検知して同時に呼ぶため、
+ * 送信中に呼ばれた場合は同じ送信の結果を共有する（後から呼んだ側にも結果が返り、完了の案内を表示できる）。
+ */
+export function flushQueue(): Promise<SyncResult[]> {
+  if (!navigator.onLine) return Promise.resolve([]);
+  inflight ??= sendQueued().finally(() => {
+    inflight = null;
+  });
+  return inflight;
+}
+
+async function sendQueued(): Promise<SyncResult[]> {
   const results: SyncResult[] = [];
   try {
     for (const q of await listQueued()) {
@@ -83,7 +94,6 @@ export async function flushQueue(): Promise<SyncResult[]> {
       }
     }
   } finally {
-    syncing = false;
     window.dispatchEvent(new Event('offline-queue-changed'));
   }
   return results;

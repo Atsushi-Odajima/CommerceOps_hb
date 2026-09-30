@@ -1,0 +1,385 @@
+{
+  "createdAt": "2026-09-30T07:18:11.139Z",
+  "orders": 300,
+  "workers": 16,
+  "importedOrders": 300,
+  "importedLines": 891,
+  "demandVsStock": [
+    {
+      "sku": "LD-001",
+      "demand": 192,
+      "stock": 3
+    },
+    {
+      "sku": "LD-002",
+      "demand": 161,
+      "stock": 3
+    },
+    {
+      "sku": "LD-003",
+      "demand": 170,
+      "stock": 3
+    },
+    {
+      "sku": "LD-004",
+      "demand": 172,
+      "stock": 75
+    },
+    {
+      "sku": "LD-005",
+      "demand": 170,
+      "stock": 75
+    },
+    {
+      "sku": "LD-006",
+      "demand": 204,
+      "stock": 75
+    },
+    {
+      "sku": "LD-007",
+      "demand": 175,
+      "stock": 75
+    },
+    {
+      "sku": "LD-008",
+      "demand": 188,
+      "stock": 75
+    },
+    {
+      "sku": "LD-009",
+      "demand": 209,
+      "stock": 75
+    },
+    {
+      "sku": "LD-010",
+      "demand": 171,
+      "stock": 75
+    }
+  ],
+  "afterAllocation": {
+    "allocated": 43,
+    "cancelled": 42,
+    "partially_allocated": 68,
+    "ready_for_allocation": 147
+  },
+  "shipped": {
+    "decremented": 176,
+    "shipped_units": 176,
+    "shipped": 43
+  },
+  "orgId": "01a0f12d-93c8-72e0-80db-cc4ab467d955",
+  "tasks": 12,
+  "waves": 2,
+  "packed": 43,
+  "shipments": 43,
+  "returns": 40,
+  "steps": {
+    "1_allocation_race": 3368,
+    "1b_cancel_vs_allocation_run": 66,
+    "2_wave_race": 219,
+    "3_claim_race": 191,
+    "3b_pick_resend": 440,
+    "4_pack_race": 1348,
+    "5_ship_race": 585,
+    "6_return_race": 1030
+  },
+  "outcomes": {
+    "orders.cancel": {
+      "ok": 42
+    },
+    "orders.allocate": {
+      "ok": 300
+    },
+    "allocation.run_now": {
+      "ok": 4
+    },
+    "waves.create": {
+      "ok": 2,
+      "409 NOTHING_TO_WAVE": 2
+    },
+    "pick.claim": {
+      "409 ALREADY_CLAIMED": 84,
+      "ok": 12
+    },
+    "pick.view": {
+      "ok": 12
+    },
+    "pick.scan_location": {
+      "ok": 23
+    },
+    "pick.scan_item (再送含む)": {
+      "ok": 46
+    },
+    "pick.over_scan": {
+      "409 TASK_CLOSED": 12
+    },
+    "pack.open": {
+      "ok": 43,
+      "409 PACK_IN_PROGRESS": 43
+    },
+    "pack.view": {
+      "ok": 43
+    },
+    "pack.scan (再送含む)": {
+      "ok": 294
+    },
+    "pack.complete (再送含む)": {
+      "ok": 86
+    },
+    "ship.tracking": {
+      "ok": 43
+    },
+    "ship.confirm (再送含む)": {
+      "ok": 129
+    },
+    "ship.bulk_confirm": {
+      "ok": 1
+    },
+    "orders.detail": {
+      "ok": 40
+    },
+    "return.create (同時)": {
+      "ok": 40,
+      "409 EXCEEDS_RETURNABLE": 40
+    },
+    "return.authorize": {
+      "ok": 40
+    },
+    "return.detail": {
+      "ok": 40
+    },
+    "return.receive (同時)": {
+      "ok": 80
+    },
+    "return.inspect (再送含む)": {
+      "ok": 120
+    }
+  },
+  "checks": [
+    {
+      "name": "引当: どの棚でも Allocated ≤ OnHand − 調査中（過剰引当なし）",
+      "ok": true
+    },
+    {
+      "name": "引当: SKU ごとの引当合計 ≤ 在庫合計（最後の数個の取り合いでも超えない）",
+      "ok": true
+    },
+    {
+      "name": "引当: 取消した注文に有効な引当が残らない（取消と引当の同時実行）",
+      "ok": true
+    },
+    {
+      "name": "引当: 注文明細の引当数 = 有効な引当（未出荷・未解放）の合計",
+      "ok": true
+    },
+    {
+      "name": "Wave: 1 つの Fulfillment が 2 つの Wave に入らない",
+      "ok": true
+    },
+    {
+      "name": "Pick: すべてのタスクで同時 claim の成功は 1 人だけ",
+      "ok": true
+    },
+    {
+      "name": "Pick: 再送（同時）でも数量は二重加算されない（picked = required）",
+      "ok": true
+    },
+    {
+      "name": "Pick: タスク行の数量 = Pick イベントの合計",
+      "ok": true
+    },
+    {
+      "name": "梱包: 再送（同時）でも梱包数は二重加算されない（packed = picked）",
+      "ok": true
+    },
+    {
+      "name": "梱包: 完了の同時再送で梱包セッション・荷物が二重に作られない",
+      "ok": true
+    },
+    {
+      "name": "梱包: 荷物の数量 = 梱包数",
+      "ok": true
+    },
+    {
+      "name": "出荷: 同時確定・まとめ確定の重なりでも OnHand の減算は 1 回（減算数 = 出荷数量）",
+      "ok": true
+    },
+    {
+      "name": "返品: 検品の同時再送でも Restock は 1 回（OnHand の増加 = Restock 数量）",
+      "ok": true
+    },
+    {
+      "name": "返品: Restock 判定 1 件ごとに在庫移動がちょうど 1 行",
+      "ok": true
+    },
+    {
+      "name": "返品: 同時申請でも返品数量の合計は出荷数量を超えない",
+      "ok": true
+    },
+    {
+      "name": "整合性チェック（全不変条件）",
+      "ok": true
+    },
+    {
+      "name": "サーバーエラー（5xx）なし",
+      "ok": true
+    }
+  ],
+  "serverErrors": [],
+  "api": {
+    "orders.cancel": {
+      "n": 42,
+      "totalMs": 1759,
+      "p50": 28.4,
+      "p95": 162.8,
+      "max": 173.5
+    },
+    "orders.allocate": {
+      "n": 300,
+      "totalMs": 32529,
+      "p50": 41.1,
+      "p95": 411.5,
+      "max": 1451.4
+    },
+    "allocation.run_now": {
+      "n": 4,
+      "totalMs": 10076,
+      "p50": 3360.3,
+      "p95": 3368,
+      "max": 3368
+    },
+    "waves.create": {
+      "n": 4,
+      "totalMs": 408,
+      "p50": 152.4,
+      "p95": 153.9,
+      "max": 153.9
+    },
+    "pick.claim": {
+      "n": 96,
+      "totalMs": 4814,
+      "p50": 42.9,
+      "p95": 104.2,
+      "max": 122.8
+    },
+    "pick.view": {
+      "n": 12,
+      "totalMs": 154,
+      "p50": 12,
+      "p95": 20.2,
+      "max": 20.2
+    },
+    "pick.scan_location": {
+      "n": 23,
+      "totalMs": 321,
+      "p50": 14.5,
+      "p95": 30.7,
+      "max": 30.9
+    },
+    "pick.scan_item (再送含む)": {
+      "n": 46,
+      "totalMs": 5077,
+      "p50": 83.3,
+      "p95": 222.5,
+      "max": 257
+    },
+    "pick.over_scan": {
+      "n": 12,
+      "totalMs": 65,
+      "p50": 5.6,
+      "p95": 6.6,
+      "max": 6.6
+    },
+    "pack.open": {
+      "n": 86,
+      "totalMs": 1878,
+      "p50": 21.6,
+      "p95": 30.3,
+      "max": 37.2
+    },
+    "pack.view": {
+      "n": 43,
+      "totalMs": 452,
+      "p50": 10.1,
+      "p95": 17.3,
+      "max": 18.1
+    },
+    "pack.scan (再送含む)": {
+      "n": 294,
+      "totalMs": 4217,
+      "p50": 14.3,
+      "p95": 19.8,
+      "max": 44.7
+    },
+    "pack.complete (再送含む)": {
+      "n": 86,
+      "totalMs": 2772,
+      "p50": 32.1,
+      "p95": 42.7,
+      "max": 49.5
+    },
+    "ship.tracking": {
+      "n": 43,
+      "totalMs": 594,
+      "p50": 14,
+      "p95": 18.2,
+      "max": 19.2
+    },
+    "ship.confirm (再送含む)": {
+      "n": 129,
+      "totalMs": 10907,
+      "p50": 73.3,
+      "p95": 162.7,
+      "max": 264.4
+    },
+    "ship.bulk_confirm": {
+      "n": 1,
+      "totalMs": 507,
+      "p50": 507.3,
+      "p95": 507.3,
+      "max": 507.3
+    },
+    "orders.detail": {
+      "n": 40,
+      "totalMs": 1252,
+      "p50": 28.5,
+      "p95": 52.7,
+      "max": 59
+    },
+    "return.create (同時)": {
+      "n": 80,
+      "totalMs": 2888,
+      "p50": 34.1,
+      "p95": 57.7,
+      "max": 62.8
+    },
+    "return.authorize": {
+      "n": 40,
+      "totalMs": 771,
+      "p50": 19.2,
+      "p95": 27.6,
+      "max": 32.9
+    },
+    "return.detail": {
+      "n": 40,
+      "totalMs": 1103,
+      "p50": 26.9,
+      "p95": 38.7,
+      "max": 46.9
+    },
+    "return.receive (同時)": {
+      "n": 80,
+      "totalMs": 2438,
+      "p50": 30.8,
+      "p95": 40.8,
+      "max": 63.5
+    },
+    "return.inspect (再送含む)": {
+      "n": 120,
+      "totalMs": 5755,
+      "p50": 46.9,
+      "p95": 74.7,
+      "max": 81.6
+    }
+  }
+}

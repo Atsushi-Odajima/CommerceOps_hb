@@ -285,7 +285,7 @@ export default function ShipmentsPage() {
           {status === 'draft' ? 'Packing Station で梱包を完了すると、ここに出荷待ちの荷物が表示されます。' : null}
         </EmptyState>
       )}
-      <Pagination total={list.data?.total ?? 0} limit={50} offset={offset} onChange={setOffset} />
+      <Pagination total={list.data?.total ?? 0} capped={list.data?.totalCapped} limit={50} offset={offset} onChange={setOffset} />
       {importOpen && <TrackingImportModal onClose={() => setImportOpen(false)} onDone={refresh} />}
     </>
   );
@@ -379,7 +379,7 @@ function InlineTracking({ shipment, meta, onDone }: { shipment: any; meta: Meta;
   );
 }
 
-/** scan 出荷: ① 荷物コード（作業票・納品書の SH-/F- バーコード）→ ② 送り状の追跡番号バーコード → 自動で出荷確定 */
+/** scan 出荷: ① 荷物コード（出荷作業票の SH- バーコード）→ ② 送り状の追跡番号バーコード → 自動で出荷確定 */
 function ScanShipPanel({ meta, onDone }: { meta: Meta; onDone: () => void }) {
   const online = useOnline();
   const [open, setOpen] = useState(false);

@@ -5,6 +5,7 @@ import { Layout } from './components/Layout';
 import { Loading, ToastProvider } from './components/ui';
 import { RequireAuth } from './routes/guards';
 import { LoginPage } from './pages/auth/LoginPage';
+import { PwaProvider } from './pwa/UpdatePrompt';
 import { AcceptInvitePage, ResetPasswordPage } from './pages/auth/TokenPages';
 import { appRoutes, fieldRoutes, printRoutes } from './routes/appRoutes';
 
@@ -81,10 +82,12 @@ function NotFound() {
 
 export function App() {
   return (
-    <ToastProvider>
-      <AuthProvider>
-        <RouterProvider router={router} />
-      </AuthProvider>
-    </ToastProvider>
+    <PwaProvider>
+      <ToastProvider>
+        <AuthProvider>
+          <RouterProvider router={router} />
+        </AuthProvider>
+      </ToastProvider>
+    </PwaProvider>
   );
 }

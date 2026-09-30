@@ -34,7 +34,9 @@ async function lockReturn(tx: Tx, returnId: string) {
 export async function returnableItems(tx: Tx, orderId: string) {
   return tx.many(
     `SELECT oi.id, oi.line_no, oi.sku, oi.product_name, oi.variant, oi.product_id, oi.quantity, oi.shipped_qty,
-            COALESCE((SELECT SUM(ri.requested_qty) FROM return_items ri JOIN returns r ON r.organization_id = ri.organization_id AND r.id = ri.return_id
+            -- 返品済みとして数える数量: 進行中の返品は申請数、完了した返品は実際に届いた数（届かなかった分は、後から届いた場合に新しい返品で受け付けられる）
+            COALESCE((SELECT SUM(CASE WHEN r.status = 'completed' THEN ri.received_qty ELSE ri.requested_qty END)
+                        FROM return_items ri JOIN returns r ON r.organization_id = ri.organization_id AND r.id = ri.return_id
                        WHERE ri.organization_id = oi.organization_id AND ri.order_item_id = oi.id AND r.status NOT IN ('rejected', 'cancelled')), 0)::int AS returned_qty
        FROM order_items oi WHERE oi.organization_id = $1 AND oi.order_id = $2 ORDER BY oi.line_no`,
     [tx.orgId, orderId],

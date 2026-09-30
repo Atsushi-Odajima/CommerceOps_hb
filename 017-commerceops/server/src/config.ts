@@ -23,8 +23,10 @@ const ConfigSchema = z.object({
   RATE_LIMIT_MAX: z.coerce.number().int().min(10).default(1200),
   LOGIN_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(20),
   MAX_UPLOAD_MB: z.coerce.number().min(1).max(100).default(20),
-  /** 画面から復元できるバックアップファイル（gzip）の上限。これを超える場合はコマンドライン（npm run restore）で復元 */
-  BACKUP_MAX_UPLOAD_MB: z.coerce.number().min(1).max(10240).default(1024),
+  /** 画面から検証・復元できるバックアップファイル（gzip）の上限。これを超える場合はコマンドライン（restore-cli）で復元 */
+  BACKUP_MAX_UPLOAD_MB: z.coerce.number().min(1).max(10240).default(256),
+  /** 画面から検証・復元できるバックアップの展開後の上限（圧縮爆弾対策と、1 リクエストで扱う量の上限） */
+  BACKUP_MAX_EXPANDED_MB: z.coerce.number().min(16).max(102400).default(1024),
   ALLOW_SIGNUP: boolish.default(false),
 });
 

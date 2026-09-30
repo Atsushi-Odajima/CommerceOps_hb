@@ -4,6 +4,7 @@ import { assertWarehouse, hasPerm, orgTx, perm, requireOrg } from '../../http.js
 import { AppError, badRequest, forbidden, notFound } from '../../lib/errors.js';
 import { contentDisposition, encodeCsv, toCsv } from '../../lib/csv.js';
 import { readUpload } from '../../lib/upload.js';
+import { cappedCount } from '../../lib/pagination.js';
 import { IdParams, parse, zPage } from '../../lib/validate.js';
 import { decodeCsvBuffer, parseCsvText } from '../imports/csvfile.js';
 import { piiLevel } from '../orders/present.js';
@@ -86,21 +87,32 @@ export async function shipmentRoutes(app: FastifyInstance) {
         AND ($8::uuid[] IS NULL OR s.warehouse_id = ANY($8))
         AND ($9::date IS NULL OR COALESCE(s.shipped_at, s.created_at) >= ($9::date::timestamp AT TIME ZONE $11))
         AND ($10::date IS NULL OR COALESCE(s.shipped_at, s.created_at) < (($10::date + 1)::timestamp AT TIME ZONE $11))`;
-      const total = (await tx.one(`SELECT count(*)::int AS n FROM shipments s JOIN orders o ON o.organization_id = s.organization_id AND o.id = s.order_id WHERE ${where}`, params)).n;
+      const { total, totalCapped } = await cappedCount(tx, `FROM shipments s JOIN orders o ON o.organization_id = s.organization_id AND o.id = s.order_id WHERE ${where}`, params);
+      // タブの件数は出荷待ち・取消のみ（出荷済みは件数が増え続けるため数えない）
       const counts = await tx.many(
-        `SELECT s.status, count(*)::int AS n FROM shipments s WHERE s.organization_id = $1 AND ($2::uuid[] IS NULL OR s.warehouse_id = ANY($2)) GROUP BY s.status`,
+        `SELECT s.status, count(*)::int AS n FROM shipments s WHERE s.organization_id = $1 AND s.status IN ('draft', 'cancelled') AND ($2::uuid[] IS NULL OR s.warehouse_id = ANY($2)) GROUP BY s.status`,
         [tx.orgId, auth.warehouseIds],
       );
       params.push(q.limit, q.offset);
+      // 状態で絞った一覧は索引の順（出荷済み: 出荷日時の新しい順）で先頭から読むだけにする
+      const order =
+        q.status === 'shipped'
+          ? 's.shipped_at DESC, s.shipment_number DESC'
+          : q.status
+            ? 's.created_at DESC, s.shipment_number DESC'
+            : `(s.status = 'draft') DESC, COALESCE(s.shipped_at, s.created_at) DESC, s.shipment_number DESC`;
       const rows = await tx.many(
-        `${SHIPMENT_SELECT} WHERE ${where}
-          ORDER BY (s.status = 'draft') DESC, COALESCE(s.shipped_at, s.created_at) DESC, s.shipment_number DESC
-          LIMIT $12 OFFSET $13`,
+        `WITH page AS (
+           SELECT s.id FROM shipments s JOIN orders o ON o.organization_id = s.organization_id AND o.id = s.order_id
+            WHERE ${where} ORDER BY ${order} LIMIT $12 OFFSET $13
+         )
+         ${SHIPMENT_SELECT} WHERE s.organization_id = $1 AND s.id IN (SELECT id FROM page) ORDER BY ${order}`,
         params,
       );
       return {
         total,
-        counts: Object.fromEntries(counts.map((c) => [c.status, c.n])),
+        totalCapped,
+        counts: { draft: 0, cancelled: 0, ...Object.fromEntries(counts.map((c) => [c.status, c.n])) },
         items: rows.map((s) => presentShipment(s, level === 'full' ? 'ship_to' : level)),
       };
     });
@@ -129,7 +141,7 @@ export async function shipmentRoutes(app: FastifyInstance) {
             AND ($2 <> 'draft' OR (NOT f.on_hold AND o.cancelled_at IS NULL))
             AND ($5::date IS NULL OR COALESCE(s.shipped_at, s.created_at) >= ($5::date::timestamp AT TIME ZONE $7))
             AND ($6::date IS NULL OR COALESCE(s.shipped_at, s.created_at) < (($6::date + 1)::timestamp AT TIME ZONE $7))
-          ORDER BY s.shipment_number LIMIT 50000`,
+          ORDER BY s.shipment_number LIMIT 100000`,
         [tx.orgId, q.type === 'pending' ? 'draft' : 'shipped', q.warehouseId ?? null, auth.warehouseIds, q.from ?? null, q.to ?? null, tz],
       );
       const items = await tx.many(
@@ -210,7 +222,7 @@ export async function shipmentRoutes(app: FastifyInstance) {
         [tx.orgId, id],
       );
       const siblings = await tx.many(
-        `SELECT id, shipment_number, box_no, status FROM shipments WHERE organization_id = $1 AND order_id = $2 AND id <> $3 ORDER BY shipment_number`,
+        `SELECT id, shipment_number, box_no, status, fulfillment_id FROM shipments WHERE organization_id = $1 AND order_id = $2 AND id <> $3 ORDER BY shipment_number`,
         [tx.orgId, s.order_id, id],
       );
       const history = hasPerm(auth, 'audit.read') || hasPerm(auth, 'shipments.manage')
@@ -223,7 +235,7 @@ export async function shipmentRoutes(app: FastifyInstance) {
       return {
         ...presentShipment(s, piiLevel(auth)),
         items: items.map((i) => ({ id: i.id, orderItemId: i.order_item_id, sku: i.sku, name: i.product_name, variant: i.variant, quantity: i.quantity })),
-        siblings: siblings.map((x) => ({ id: x.id, shipmentNumber: x.shipment_number, boxNo: x.box_no, status: x.status })),
+        siblings: siblings.map((x) => ({ id: x.id, shipmentNumber: x.shipment_number, boxNo: x.box_no, status: x.status, fulfillmentId: x.fulfillment_id })),
         history: history.map((h) => ({ action: h.action, summary: h.summary, actor: h.actor_name, at: h.created_at })),
       };
     });

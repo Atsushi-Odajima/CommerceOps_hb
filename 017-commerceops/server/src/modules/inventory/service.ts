@@ -166,6 +166,13 @@ export async function transferStock(
   const from = await getOrCreateBalance(tx, input.fromLocationId, input.productId);
   const to = await getOrCreateBalance(tx, input.toLocationId, input.productId);
   if (from.warehouse_id !== to.warehouse_id) throw conflict('CROSS_WAREHOUSE', '倉庫間の移動はできません（出荷・入荷として処理してください）');
+  // 販売可能（pick）と返品保留・破損の間の移動は「売れる在庫が増える/減る」判断なので理由を必須にする（返品保留の再確認後に戻す等）
+  const kinds = await tx.many<{ id: string; kind: string }>(`SELECT id, kind FROM locations WHERE organization_id = $1 AND id = ANY($2::uuid[])`, [tx.orgId, [input.fromLocationId, input.toLocationId]]);
+  const fromKind = kinds.find((k) => k.id === input.fromLocationId)?.kind;
+  const toKind = kinds.find((k) => k.id === input.toLocationId)?.kind;
+  if (fromKind !== toKind && (fromKind === 'pick' || toKind === 'pick') && !input.reason?.trim()) {
+    throw new AppError(400, 'REASON_REQUIRED', toKind === 'pick' ? '販売可能な棚へ戻す理由を入力してください（検品・確認の結果など）' : '販売可能在庫から外す理由を入力してください');
+  }
   // ロック順を固定してデッドロックを避ける
   const ids = [from.id, to.id].sort();
   await tx.many(`SELECT id FROM inventory_balances WHERE organization_id = $1 AND id = ANY($2) ORDER BY id FOR UPDATE`, [tx.orgId, ids]);
@@ -189,7 +196,7 @@ export async function transferStock(
     idempotencyKey: `transfer_in:${key}`,
     reason: input.reason ?? 'ロケーション移動',
   });
-  return { applied: true };
+  return { applied: true, fromKind, toKind };
 }
 
 /** 調査中（held）の解消: loss=紛失確定（on_hand も減らす）/ found=発見（held を戻す） */

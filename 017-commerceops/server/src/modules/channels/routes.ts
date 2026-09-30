@@ -43,7 +43,7 @@ export const ProfileBody = z.object({
   active: z.boolean().default(true),
 });
 
-/** CommerceOps 標準 CSV テンプレート（buyer-docs/templates/orders_template.csv）用のマッピング */
+/** CommerceOps 標準 CSV テンプレート（buyer-docs/CSVテンプレート/注文CSVテンプレート（標準）.csv）用のマッピング */
 export const STANDARD_TEMPLATE_MAPPING: Mapping = {
   externalOrderId: { source: { column: '注文番号' }, transforms: [] },
   orderDate: { source: { column: '注文日時' }, transforms: [] },

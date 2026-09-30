@@ -57,6 +57,15 @@ async function lockTaskForPicker(tx: Tx, taskId: string, userId: string, ttlMinu
   return t;
 }
 
+/**
+ * 同じ clientEventId の再送が同時に届いた場合: 先にタスクの行ロックを取ってから冪等チェックをやり直す。
+ * ロック待ちの間に先の要求が確定していれば、その結果をそのまま返す（後着を誤 scan・完了済みエラーとして扱わない）。
+ */
+async function lockTaskAndCheckResend(tx: Tx, taskId: string, clientEventId: string): Promise<ScanResult | null> {
+  await tx.maybeOne(`SELECT id FROM pick_tasks WHERE organization_id = $1 AND id = $2 FOR UPDATE`, [tx.orgId, taskId]);
+  return previousResult(tx, clientEventId);
+}
+
 async function previousResult(tx: Tx, clientEventId: string): Promise<ScanResult | null> {
   const prev = await tx.many(`SELECT event_type, qty, note FROM pick_events WHERE organization_id = $1 AND client_event_id = $2`, [tx.orgId, clientEventId]);
   if (!prev.length) return null;
@@ -125,13 +134,14 @@ async function afterProgress(tx: Tx, task: any, fulfillmentIds: Set<string>, rea
       WHERE organization_id = $1 AND id = $2`,
     [tx.orgId, task.id, completed ? 'completed' : 'in_progress'],
   );
+  // ロックは ID 順（同じ Fulfillment・注文の明細が複数タスクに分かれていても、取引ごとにロック順が逆にならずデッドロックしない）
   const orders = new Set<string>();
-  for (const fid of fulfillmentIds) {
+  for (const fid of [...fulfillmentIds].sort()) {
     await refreshFulfillmentStatus(tx, fid);
     const f = await tx.one(`SELECT order_id FROM fulfillments WHERE organization_id = $1 AND id = $2`, [tx.orgId, fid]);
     orders.add(f.order_id);
   }
-  for (const oid of orders) await recomputeOrderStatus(tx, oid, reason);
+  for (const oid of [...orders].sort()) await recomputeOrderStatus(tx, oid, reason);
   await refreshWaveStatus(tx, task.wave_id);
   return completed;
 }
@@ -273,10 +283,12 @@ export async function scanLocation(
 ): Promise<ScanResult> {
   const prev = await previousResult(tx, input.clientEventId);
   if (prev) return prev;
+  const raced = await lockTaskAndCheckResend(tx, taskId, input.clientEventId);
+  if (raced) return raced;
   const task = await lockTaskForPicker(tx, taskId, userId, ttlMinutes);
   const expected = await tx.maybeOne(`SELECT id, code FROM locations WHERE organization_id = $1 AND id = $2`, [tx.orgId, input.expectedLocationId]);
   if (!expected) throw notFound('ロケーション');
-  const code = input.code.trim();
+  const code = input.code.normalize('NFKC').trim(); // 全角で手入力されたコードも半角として照合
   const loc = await tx.maybeOne(
     `SELECT id, code FROM locations WHERE organization_id = $1 AND warehouse_id = $2 AND (barcode = $3 OR code = $3) ORDER BY (barcode = $3) DESC LIMIT 1`,
     [tx.orgId, task.warehouse_id, code],
@@ -299,9 +311,11 @@ export async function pickScan(
 ): Promise<ScanResult> {
   const prev = await previousResult(tx, input.clientEventId);
   if (prev) return prev;
+  const raced = await lockTaskAndCheckResend(tx, taskId, input.clientEventId);
+  if (raced) return raced;
   if (!Number.isInteger(input.qty) || input.qty < 1 || input.qty > 10000) throw new AppError(400, 'INVALID_QTY', '数量が不正です');
   const task = await lockTaskForPicker(tx, taskId, userId, ttlMinutes);
-  const code = input.code.trim();
+  const code = input.code.normalize('NFKC').trim(); // 全角で手入力されたコードも半角として照合
   const base = { clientEventId: input.clientEventId, task, userId, inputMethod: input.inputMethod, offline: input.offline, clientCreatedAt: input.clientCreatedAt, code };
   const product = await resolveProductByCode(tx, code);
   const expectedHere = await tx.maybeOne(
@@ -341,6 +355,11 @@ export async function pickScan(
     await insertEvent(tx, { ...base, locationId: input.locationId, productId: product.id, type: 'over_pick', qty: input.qty, note: message });
     return { ok: false, code: 'OVER_PICK', message };
   }
+  // 更新する Fulfillment 明細を ID 順に先にロック（同じ明細を別タスクの行が更新する場合のデッドロック防止）
+  await tx.many(`SELECT id FROM fulfillment_items WHERE organization_id = $1 AND id = ANY($2::uuid[]) ORDER BY id FOR UPDATE`, [
+    tx.orgId,
+    [...new Set(lines.map((l) => l.fulfillment_item_id as string))],
+  ]);
   let rest = input.qty;
   const ffs = new Set<string>();
   for (const l of lines) {
@@ -380,6 +399,8 @@ export async function shortPick(
 ): Promise<ScanResult & { shortQty?: number }> {
   const prev = await previousResult(tx, input.clientEventId);
   if (prev) return prev;
+  const raced = await lockTaskAndCheckResend(tx, taskId, input.clientEventId);
+  if (raced) return raced;
   if (input.reasonCode === 'other' && !input.note?.trim()) throw new AppError(400, 'NOTE_REQUIRED', '「その他」の場合はメモを入力してください');
   const task = await lockTaskForPicker(tx, taskId, userId, ttlMinutes);
   const lines = await tx.many(
@@ -390,6 +411,10 @@ export async function shortPick(
     [tx.orgId, taskId, input.locationId, input.productId],
   );
   if (!lines.length) throw conflict('NOTHING_TO_SHORT', 'Short にできる残数量がありません');
+  await tx.many(`SELECT id FROM fulfillment_items WHERE organization_id = $1 AND id = ANY($2::uuid[]) ORDER BY id FOR UPDATE`, [
+    tx.orgId,
+    [...new Set(lines.map((l) => l.fulfillment_item_id as string))],
+  ]);
   const ffs = new Set<string>();
   const orders = new Set<string>();
   let total = 0;
@@ -502,6 +527,8 @@ export async function correctPick(
 ): Promise<ScanResult> {
   const prev = await previousResult(tx, input.clientEventId);
   if (prev) return prev;
+  const raced = await lockTaskAndCheckResend(tx, taskId, input.clientEventId);
+  if (raced) return raced;
   // 訂正は完了済みタスクにも可能（梱包開始前まで）。完了タスクは訂正で作業中に戻る
   const task = isManager
     ? await tx.maybeOne(`SELECT * FROM pick_tasks WHERE organization_id = $1 AND id = $2 FOR UPDATE`, [tx.orgId, taskId])

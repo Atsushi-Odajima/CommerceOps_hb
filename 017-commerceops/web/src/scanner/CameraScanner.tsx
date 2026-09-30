@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from 'react';
  * カメラでバーコード/QR を読む。
  * 1) ネイティブ BarcodeDetector（Android Chrome 等）  2) 非対応（iOS Safari 等）は @zxing/browser
  * 画像は端末内で処理し、外部の画像認識 API には送らない。
- * 対応済みと表記するシンボル: EAN-13(JAN) / EAN-8 / UPC-A / Code128 / Code39 / ITF / QR（ZXing で自動テスト済み: TEST_REPORT.md）
+ * 対応済みと表記するシンボル: EAN-13(JAN) / EAN-8 / UPC-A / Code128 / Code39 / ITF（14 桁 = ITF-14）/ QR（ZXing で自動テスト済み: TEST_REPORT.md）
+ * ITF はチェック文字がなく、斜めに読むと一部だけの短い値を返すことがある（テストで確認）ため 14 桁未満は採用しない。
  */
 const NATIVE_FORMATS = ['ean_13', 'ean_8', 'upc_a', 'code_128', 'code_39', 'itf', 'qr_code'];
 
@@ -56,8 +57,9 @@ export function CameraScanner({ onDetected, onClose }: { onDetected: (code: stri
           const loop = async () => {
             if (stopped) return;
             try {
-              const codes = await detector.detect(video);
-              if (codes.length && codes[0].rawValue) emit(String(codes[0].rawValue));
+              const codes: { rawValue?: string; format?: string }[] = await detector.detect(video);
+              const hit = codes.find((c) => c.rawValue && !(c.format === 'itf' && String(c.rawValue).length < 14));
+              if (hit) emit(String(hit.rawValue));
             } catch {
               /* フレーム取得失敗は無視 */
             }
@@ -77,6 +79,7 @@ export function CameraScanner({ onDetected, onClose }: { onDetected: (code: stri
             BarcodeFormat.QR_CODE,
           ]);
           hints.set(DecodeHintType.TRY_HARDER, true);
+          hints.set(DecodeHintType.ALLOWED_LENGTHS, [14]); // ITF の部分読み（短い値）を採用しない
           const reader = new BrowserMultiFormatReader(hints, { delayBetweenScanAttempts: 150, delayBetweenScanSuccess: 600 });
           setEngine('ZXing');
           zxingControls = await reader.decodeFromConstraints(

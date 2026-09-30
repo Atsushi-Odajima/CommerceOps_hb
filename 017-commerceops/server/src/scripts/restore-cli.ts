@@ -46,6 +46,7 @@ async function main() {
   }
   const rows = Object.values(v.counts).reduce((a, n) => a + n, 0);
   console.log(`rows:         ${rows}  users: ${v.users}  files: ${v.files}`);
+  if (v.missingFiles) console.warn(`注意: 写真 ${v.missingFiles} 件はバックアップ作成時にファイルが見つからず、画像は含まれていません（記録だけ復元されます）`);
   if (!v.ok) {
     console.error(`verify:       NG\n  ${v.errors.join('\n  ')}`);
     process.exitCode = 1;

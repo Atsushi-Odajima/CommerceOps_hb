@@ -4,6 +4,7 @@ import { get, post } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { Badge, ErrorBox, Loading, useToast } from '../components/ui';
 import { MobileShell } from './MobileShell';
+import { ChangePasswordButton } from '../components/ChangePassword';
 
 export default function MobileHome() {
   const { me, can, logout } = useAuth();
@@ -39,6 +40,7 @@ export default function MobileHome() {
             管理画面（PC 表示）
           </Link>
         )}
+        <ChangePasswordButton className="btn btn-lg btn-block" />
         <button className="btn btn-lg btn-block" onClick={() => void logout().then(() => nav('/login'))}>
           ログアウト
         </button>

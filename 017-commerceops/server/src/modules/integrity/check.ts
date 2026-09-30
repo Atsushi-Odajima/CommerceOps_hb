@@ -10,7 +10,7 @@ export interface IntegrityViolation {
   sample: unknown[];
 }
 
-const CHECKS: { name: string; sql: string }[] = [
+export const CHECKS: { name: string; sql: string }[] = [
   {
     name: 'balance.on_hand = Σ movements.on_hand_delta',
     sql: `SELECT b.id, b.on_hand, COALESCE(SUM(m.on_hand_delta), 0) AS ledger
@@ -116,11 +116,11 @@ const CHECKS: { name: string; sql: string }[] = [
                   OR (ins.disposition = 'quarantine' AND l.kind <> 'quarantine'))`,
   },
   {
-    name: 'returned qty <= shipped qty (per order item, active returns)',
-    sql: `SELECT oi.id, oi.shipped_qty, SUM(ri.requested_qty) AS returned
+    name: 'returned qty <= shipped qty (per order item; active returns by requested qty, completed returns by received qty)',
+    sql: `SELECT oi.id, oi.shipped_qty, SUM(CASE WHEN r.status = 'completed' THEN ri.received_qty ELSE ri.requested_qty END) AS returned
             FROM order_items oi JOIN return_items ri ON ri.organization_id = oi.organization_id AND ri.order_item_id = oi.id
             JOIN returns r ON r.organization_id = ri.organization_id AND r.id = ri.return_id AND r.status NOT IN ('rejected', 'cancelled')
-           WHERE oi.organization_id = $1 GROUP BY oi.id, oi.shipped_qty HAVING SUM(ri.requested_qty) > oi.shipped_qty`,
+           WHERE oi.organization_id = $1 GROUP BY oi.id, oi.shipped_qty HAVING SUM(CASE WHEN r.status = 'completed' THEN ri.received_qty ELSE ri.requested_qty END) > oi.shipped_qty`,
   },
   {
     name: 'restocked qty <= received qty',
@@ -131,7 +131,7 @@ const CHECKS: { name: string; sql: string }[] = [
 ];
 
 /** 参照の一貫性（Order → Fulfillment → Shipment → Return → Exchange の関連が同じ注文を指していること） */
-const REFERENCE_CHECKS: { name: string; sql: string }[] = [
+export const REFERENCE_CHECKS: { name: string; sql: string }[] = [
   {
     name: 'fulfillment_item.order_item belongs to the fulfillment order',
     sql: `SELECT fi.id FROM fulfillment_items fi
@@ -191,9 +191,16 @@ const REFERENCE_CHECKS: { name: string; sql: string }[] = [
 
 export async function checkIntegrity(tx: Tx): Promise<IntegrityViolation[]> {
   const out: IntegrityViolation[] = [];
-  for (const c of [...CHECKS, ...REFERENCE_CHECKS]) {
-    const rows = await tx.many(`${c.sql} LIMIT 20`, [tx.orgId]);
-    if (rows.length) out.push({ check: c.name, count: rows.length, sample: rows.slice(0, 5) });
+  // 検査は組織の全行を集計するので、常にハッシュ / マージ結合で行う。作成・復元した直後の組織はまだ統計情報に反映されておらず、
+  // 行数を 1 と見積もった入れ子ループが行数の 2 乗以上に遅くなる（大きな組織がある DB で 500 注文の組織が 60 秒を超えた）
+  await tx.exec(`SELECT set_config('enable_nestloop', 'off', true)`);
+  try {
+    for (const c of [...CHECKS, ...REFERENCE_CHECKS]) {
+      const rows = await tx.many(`${c.sql} LIMIT 20`, [tx.orgId]);
+      if (rows.length) out.push({ check: c.name, count: rows.length, sample: rows.slice(0, 5) });
+    }
+  } finally {
+    await tx.exec(`SELECT set_config('enable_nestloop', 'on', true)`);
   }
   return out;
 }

@@ -1,7 +1,7 @@
 # 運用手順 (OPERATIONS.md)
 
 対象: CommerceOps を自社サーバー / PaaS で運用する人（サーバー運用者）と、各組織の Owner。
-最終更新: Phase 9（2026-09-30）。デプロイ構成（Docker / PaaS 設定）は Phase 11 で追記する。
+最終更新: Phase 11（2026-09-30）。サーバーの用意・デプロイ構成（Docker / Render / Node.js 直接）は docs/DEPLOY.md。
 
 ---
 
@@ -32,6 +32,11 @@
 在庫の数だけが食い違う場合は、在庫調整（理由必須・監査ログに記録）で実数に合わせる。原因が分からない場合は開発元へ連絡する。
 
 ## 3. バックアップ
+
+> コマンドラインの実行方法: 開発環境では `npm run <名前> -w server -- ...`（tsx）、ビルド済みの環境（Docker・本番）では
+> `node dist/scripts/<名前>-cli.js ...`（`server/` で実行。Docker では `docker compose exec app node dist/scripts/backup-cli.js ...`）。
+> `.env` ファイルは自動では読まないので、`DATABASE_URL`・`DATA_DIR` はアプリと同じ値を環境変数で渡す（`DATA_DIR` が違うと写真が「欠落」になり、
+> backup-cli は警告して終了コード 1 を返す。欠落を承知で取る場合のみ `--allow-missing-files`）。
 
 ### 3.1 組織単位のバックアップ（アプリの機能）
 組織のデータを 1 ファイル（gzip 圧縮した NDJSON、`commerceops-backup-YYYYMMDDTHHMMSS.ndjson.gz`）にまとめる。
@@ -79,7 +84,8 @@
 ユーザーの扱い: **復元する人が Owner を務める組織のメンバー**だけを、同じアカウントのまま新しい組織に追加する（元の権限で）。
 それ以外のユーザー（別の事業者のアカウント・この環境にいないメールアドレス）はアカウントを作らず、完了画面に一覧を出すので、必要なら招待する。
 
-上限: 画面から扱えるのは `BACKUP_MAX_UPLOAD_MB`（既定 1024MB の gzip ファイル、展開後 1GB）まで。超える場合は §4.2。
+上限: 画面から扱えるのはファイル `BACKUP_MAX_UPLOAD_MB`（既定 256MB）かつ展開後 `BACKUP_MAX_EXPANDED_MB`（既定 1024MB）まで（画面に表示）。
+超える場合は §4.2（目安: 約 10 万注文の組織で gzip 約 260MB。TEST_REPORT.md）。上限を上げる場合は、リバースプロキシのアップロード上限・タイムアウトも合わせる。
 
 ### 4.2 コマンドライン（サーバー運用者）— 空の環境・大きなファイル
 ```bash
@@ -149,12 +155,20 @@ npm run restore -- --file /secure/backups/shop-a.ndjson.gz --actor-email owner@e
 
 保守処理は Job worker が 1 分ごとに実行する（保持期限の削除は 1 時間ごと）。
 
+### 8.1 統計情報の更新（自動）
+- 15 分ごとに、前回から 500 行以上変わった業務テーブルを `ANALYZE` する（`db.analyzeChangedTables`）。組織の復元の直後と、100 件以上の注文 CSV 取込の直後にも実行する。
+- 理由: 組織が少ない DB では、後から作った組織（や復元した組織）の行数が次の ANALYZE まで「1 行」と見積もられ、画面の問い合わせが
+  遅くなることがある（負荷検証で、大きな組織がある DB に作った 500 注文の組織の注文詳細が 6ms → 293ms。TEST_REPORT.md）。
+- 大量の取込・復元の直後に遅いと感じた場合は、DB で `ANALYZE;` を実行してよい（業務データは変わらない）。
+- 整合性チェック（`npm run integrity`）は統計情報に関係なくハッシュ結合で実行する（作成直後の組織でも数十 ms〜）。
+
 ## 9. 障害対応の早見表
 | 症状 | 確認 | 対処 |
 |---|---|---|
 | 画面が開かない | `/healthz` | プロセス再起動、ログ確認 |
 | 「サーバーに接続できません」が多発 | `/readyz` が 503 | DB の稼働・接続数（`DATABASE_POOL_MAX`）・ネットワーク |
 | 「他の操作と競合しました」 | 同じ注文・作業を同時に操作 | 画面を再読み込みしてやり直す（二重処理にはならない） |
+| 作ったばかりの組織・復元した組織の画面だけ遅い | 統計情報（§8.1） | 15 分以内に自動で解消。急ぐ場合は DB で `ANALYZE;` |
 | 自動引当が進まない | `jobs` の queued / dead | worker が動いているか（`RUN_WORKER`）、dead の `last_error` |
 | 在庫が合わない | `npm run integrity` | §2 の手順 |
 | 写真が表示されない | `DATA_DIR/attachments` | 永続ディスクがマウントされているか |

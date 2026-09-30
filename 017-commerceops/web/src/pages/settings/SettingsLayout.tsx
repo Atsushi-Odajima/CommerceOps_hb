@@ -16,13 +16,14 @@ export default function SettingsLayout() {
   return (
     <>
       <PageHeader title="設定" />
-      <div className="tabs" role="tablist">
+      {/* ページ間の移動なのでタブ（tablist）ではなくナビゲーション。現在のページは NavLink が aria-current="page" を付ける */}
+      <nav className="tabs" aria-label="設定の項目">
         {TABS.filter((t) => can(t.perm)).map((t) => (
           <NavLink key={t.to} to={t.to} className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>
             {t.label}
           </NavLink>
         ))}
-      </div>
+      </nav>
       <Outlet />
     </>
   );

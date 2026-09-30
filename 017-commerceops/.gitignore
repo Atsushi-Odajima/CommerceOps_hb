@@ -10,7 +10,8 @@ backups/
 *.log
 e2e/test-results/
 e2e/playwright-report/
-load/results/*.json
-!load/results/.gitkeep
+# 負荷・規模検証の結果は TEST_REPORT.md の根拠として残す（生成の途中状態・試行は除く）
+load/results/scale-state.json
+load/results/dayflow-trial*.json
 .vite/
 *.tsbuildinfo

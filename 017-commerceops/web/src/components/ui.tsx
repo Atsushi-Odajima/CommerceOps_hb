@@ -238,18 +238,22 @@ export function Pagination({
   offset,
   limit,
   total,
+  capped,
   onChange,
 }: {
   offset: number;
   limit: number;
   total: number;
+  /** 件数を上限（1 万件）で打ち切った場合 true（サーバーの totalCapped） */
+  capped?: boolean;
   onChange: (offset: number) => void;
 }) {
-  if (total <= limit) return <div className="pagination muted small">{total}件</div>;
+  const totalLabel = capped ? `${total.toLocaleString()}件以上（条件で絞り込んでください）` : `${total.toLocaleString()}件`;
+  if (total <= limit) return <div className="pagination muted small">{totalLabel}</div>;
   return (
     <div className="pagination">
       <span className="muted small">
-        {offset + 1}–{Math.min(offset + limit, total)} / {total}件
+        {offset + 1}–{Math.min(offset + limit, total)} / {totalLabel}
       </span>
       <button className="btn btn-sm" disabled={offset === 0} onClick={() => onChange(Math.max(0, offset - limit))}>
         前へ

@@ -115,7 +115,7 @@ export default function ReturnsPage() {
       ) : (
         <EmptyState title="該当する返品はありません" />
       )}
-      <Pagination total={list.data?.total ?? 0} limit={50} offset={offset} onChange={setOffset} />
+      <Pagination total={list.data?.total ?? 0} capped={list.data?.totalCapped} limit={50} offset={offset} onChange={setOffset} />
     </>
   );
 }
@@ -364,7 +364,10 @@ export function ReturnDetailPage() {
           </>
         }
       />
-      {['received', 'inspecting'].includes(r.status) && can('returns.inspect') && <InspectPanel ret={r} onDone={refresh} />}
+      {['received', 'inspecting'].includes(r.status) && can('returns.inspect') && (
+        // 一部だけ確定した後は、最新の未検品数で入力欄を作り直す（古い行のまま再送すると到着数超過になる）
+        <InspectPanel key={r.items.map((i: any) => `${i.id}:${i.inspectedQty}`).join(',')} ret={r} onDone={refresh} />
+      )}
       {['received', 'inspecting'].includes(r.status) && !can('returns.inspect') && (
         <div className="alert info">到着済みです。検品（再販可・破損などの判定）は管理者が行います。</div>
       )}

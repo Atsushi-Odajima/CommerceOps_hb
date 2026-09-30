@@ -56,7 +56,7 @@ export function shipToSnapshot(o: any) {
 
 /** 注文番号 / 出荷作業番号から梱包対象の Fulfillment を特定 */
 export async function resolvePackTarget(tx: Tx, code: string, warehouseIds: string[] | null): Promise<{ fulfillmentId: string } | { choices: any[] }> {
-  const c = code.trim().toUpperCase();
+  const c = code.normalize('NFKC').trim().toUpperCase();
   const f = await tx.maybeOne(`SELECT id FROM fulfillments WHERE organization_id = $1 AND fulfillment_number = $2`, [tx.orgId, c]);
   if (f) return { fulfillmentId: f.id };
   const o = await tx.maybeOne(`SELECT id, order_number FROM orders WHERE organization_id = $1 AND order_number = $2`, [tx.orgId, c]);

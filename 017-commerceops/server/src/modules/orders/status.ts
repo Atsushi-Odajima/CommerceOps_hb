@@ -112,7 +112,7 @@ export function deriveOrderStatus(f: OrderFacts): OrderStatus {
 export async function loadOrderFacts(tx: Tx, orderId: string, lock = true): Promise<OrderFacts> {
   const o = await tx.maybeOne(
     `SELECT status, cancelled_at, closed_at, jsonb_array_length(validation_errors) AS verr
-       FROM orders WHERE organization_id = $1 AND id = $2 ${lock ? 'FOR UPDATE' : ''}`,
+       FROM orders WHERE organization_id = $1 AND id = $2 ${lock ? 'FOR NO KEY UPDATE' : ''}`, // 子行 INSERT の KEY SHARE と衝突させない（fulfillment/status.ts 参照）
     [tx.orgId, orderId],
   );
   if (!o) throw new AppError(404, 'NOT_FOUND', '注文が見つかりません');

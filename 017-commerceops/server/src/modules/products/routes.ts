@@ -10,7 +10,7 @@ import { decodeCsvBuffer, parseCsvText } from '../imports/csvfile.js';
 import { readUpload } from '../../lib/upload.js';
 
 const Symbology = z.enum(['ean13', 'ean8', 'upca', 'code128', 'code39', 'itf', 'qr', 'other']);
-const BarcodeInput = z.object({ code: z.string().trim().min(1).max(128), symbology: Symbology.optional() });
+const BarcodeInput = z.object({ code: z.string().trim().min(1).max(128).transform((v) => v.normalize('NFKC')), symbology: Symbology.optional() });
 
 const ProductBody = z.object({
   sku: z.string().trim().min(1).max(64),
@@ -63,13 +63,24 @@ export function mapProduct(r: any) {
 }
 
 /** スキャンしたコードから商品を解決（バーコード → SKU の順） */
+/**
+ * 同じ GTIN の表記ゆれ: UPC-A（12 桁）と先頭 0 の EAN-13（13 桁）は同じ商品コード。
+ * 読取機器・ライブラリによってどちらの形でも返る（ZXing は先頭 0 の EAN-13 を UPC-A の 12 桁で返す）ため、両方で照合する。
+ */
+export function gtinVariants(code: string): string[] {
+  if (/^\d{12}$/.test(code) && eanCheck('0' + code)) return [code, '0' + code];
+  if (/^0\d{12}$/.test(code) && eanCheck(code)) return [code, code.slice(1)];
+  return [code];
+}
+
 export async function resolveProductByCode(tx: Tx, code: string) {
-  const c = code.trim();
+  const c = code.normalize('NFKC').trim(); // 全角で手入力されたコードも半角として照合
   if (!c) return null;
   const byBarcode = await tx.maybeOne(
     `SELECT p.* FROM product_barcodes b JOIN products p ON p.organization_id = b.organization_id AND p.id = b.product_id
-      WHERE b.organization_id = $1 AND b.code = $2`,
-    [tx.orgId, c],
+      WHERE b.organization_id = $1 AND b.code = ANY($2::text[])
+      ORDER BY (b.code = $3) DESC LIMIT 1`,
+    [tx.orgId, gtinVariants(c), c],
   );
   if (byBarcode) return byBarcode;
   return tx.maybeOne('SELECT * FROM products WHERE organization_id = $1 AND sku = $2', [tx.orgId, c]);
@@ -79,8 +90,8 @@ async function upsertBarcodes(tx: Tx, productId: string, barcodes: z.infer<typeo
   for (const b of barcodes) {
     const other = await tx.maybeOne(
       `SELECT p.sku FROM product_barcodes b JOIN products p ON p.organization_id = b.organization_id AND p.id = b.product_id
-        WHERE b.organization_id = $1 AND b.code = $2 AND b.product_id <> $3`,
-      [tx.orgId, b.code, productId],
+        WHERE b.organization_id = $1 AND b.code = ANY($2::text[]) AND b.product_id <> $3`,
+      [tx.orgId, gtinVariants(b.code), productId],
     );
     if (other) throw conflict('BARCODE_TAKEN', `バーコード ${b.code} は既に SKU ${other.sku} に登録されています`);
     await tx.exec(
@@ -117,9 +128,9 @@ export async function productRoutes(app: FastifyInstance) {
     const withStock = hasPerm(auth, 'inventory.read');
     return orgTx(req, async (tx) => {
       const where = `p.organization_id = $1 AND ($2::text IS NULL OR p.sku ILIKE '%' || $2 || '%' OR p.name ILIKE '%' || $2 || '%'
-                     OR EXISTS (SELECT 1 FROM product_barcodes b WHERE b.organization_id = p.organization_id AND b.product_id = p.id AND b.code = $2))
+                     OR EXISTS (SELECT 1 FROM product_barcodes b WHERE b.organization_id = p.organization_id AND b.product_id = p.id AND b.code = ANY($4::text[])))
                      AND ($3 = 'all' OR p.active = ($3 = 'true'))`;
-      const params = [tx.orgId, q.q ?? null, q.active];
+      const params = [tx.orgId, q.q ?? null, q.active, q.q ? gtinVariants(q.q) : []];
       const total = (await tx.one(`SELECT count(*)::int AS n FROM products p WHERE ${where}`, params)).n;
       const rows = await tx.many(
         `SELECT p.*,
@@ -130,7 +141,7 @@ export async function productRoutes(app: FastifyInstance) {
                               (SELECT COALESCE(SUM(ib.on_hand - ib.allocated - ib.held), 0)::int FROM inventory_balances ib JOIN locations l ON l.organization_id = ib.organization_id AND l.id = ib.location_id
                                    WHERE ib.organization_id = p.organization_id AND ib.product_id = p.id AND l.kind = 'pick' AND l.active) AS available` : ''}
            FROM products p WHERE ${where}
-          ORDER BY p.sku LIMIT $4 OFFSET $5`,
+          ORDER BY p.sku LIMIT $5 OFFSET $6`,
         [...params, q.limit, q.offset],
       );
       return { items: rows.map(mapProduct), total };

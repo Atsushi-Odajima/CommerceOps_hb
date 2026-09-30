@@ -37,13 +37,13 @@ export function decodeCsvBuffer(buf: Buffer, encoding: 'utf-8' | 'shift_jis'): D
     if (!looksLikeUtf8(body)) {
       throw badRequest(
         'ENCODING_MISMATCH',
-        'ファイルを UTF-8 として読み込めません。Shift_JIS（CP932）の可能性があります。Import Profile の文字コードを「Shift_JIS」に変更してください。',
+        'ファイルを UTF-8 として読み込めません。Shift_JIS（CP932）の可能性があります。文字コードに「Shift_JIS」を指定して取り込み直してください（注文の取込では Import Profile の設定）。',
       );
     }
     return { text: body.toString('utf8'), hadBom, encoding };
   }
   if (hadBom) {
-    throw badRequest('ENCODING_MISMATCH', 'UTF-8 の BOM が付いたファイルです。Import Profile の文字コードを「UTF-8」にしてください。');
+    throw badRequest('ENCODING_MISMATCH', 'UTF-8 の BOM が付いたファイルです。文字コードに「UTF-8」を指定して取り込み直してください（注文の取込では Import Profile の設定）。');
   }
   const text = iconv.decode(buf, 'cp932');
   if (text.includes('�')) {

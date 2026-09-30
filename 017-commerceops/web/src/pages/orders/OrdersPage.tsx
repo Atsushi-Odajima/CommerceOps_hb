@@ -175,7 +175,7 @@ export default function OrdersPage() {
               </tbody>
             </table>
           </div>
-          <Pagination offset={offset} limit={limit} total={list.data.total} onChange={setOffset} />
+          <Pagination offset={offset} limit={limit} total={list.data.total} capped={(list.data as any).totalCapped} onChange={setOffset} />
         </>
       ) : (
         <EmptyState title="該当する注文はありません" />

@@ -15,9 +15,6 @@ import { audit } from '../audit/audit.js';
 import { exportOrganizationLines } from './export.js';
 import { assertGzip, linesFromGzipFile, restoreBackup, verifyBackup } from './restore.js';
 
-/** HTTP 経由で扱う展開後サイズの上限（これを超える場合はコマンドライン: npm run restore） */
-const HTTP_MAX_EXPANDED = 1024 * 1024 * 1024;
-
 export async function backupRoutes(app: FastifyInstance) {
   const { pool, storage, config } = app.deps;
   const tmpDir = join(config.DATA_DIR, 'tmp');
@@ -61,6 +58,8 @@ export async function backupRoutes(app: FastifyInstance) {
           createdAt: r.created_at,
           finishedAt: r.finished_at,
         })),
+        // 画面から扱えるファイルの上限（超える場合はサーバー運用者がコマンドラインで復元）
+        limits: { maxUploadMb: config.BACKUP_MAX_UPLOAD_MB, maxExpandedMb: config.BACKUP_MAX_EXPANDED_MB },
       };
     });
   });
@@ -87,7 +86,7 @@ export async function backupRoutes(app: FastifyInstance) {
           tx.orgId,
           runId,
           s.sha256,
-          JSON.stringify({ counts: s.counts, users: s.users, files: s.files }),
+          JSON.stringify({ counts: s.counts, users: s.users, files: s.files, missingFiles: s.missingFiles }),
         ]),
       ).catch(() => undefined);
     });
@@ -107,7 +106,7 @@ export async function backupRoutes(app: FastifyInstance) {
   app.post('/api/backup/verify', { preHandler: perm('backup.manage') }, async (req) => {
     const up = await receive(req);
     try {
-      const v = await verifyBackup(linesFromGzipFile(up.path, HTTP_MAX_EXPANDED));
+      const v = await verifyBackup(linesFromGzipFile(up.path, config.BACKUP_MAX_EXPANDED_MB * 1024 * 1024));
       return {
         ok: v.ok,
         errors: v.errors,
@@ -115,6 +114,7 @@ export async function backupRoutes(app: FastifyInstance) {
         counts: v.counts,
         users: v.users,
         files: v.files,
+        missingFiles: v.missingFiles,
         sha256: v.trailer?.sha256 ?? null,
       };
     } finally {
@@ -129,7 +129,7 @@ export async function backupRoutes(app: FastifyInstance) {
     try {
       const fields = parse(z.object({ confirm: z.literal('true'), name: z.string().trim().max(200).optional() }), up.fields);
       if (fields.confirm !== 'true') throw badRequest('CONFIRM_REQUIRED', '確認が必要です');
-      const source = linesFromGzipFile(up.path, HTTP_MAX_EXPANDED);
+      const source = linesFromGzipFile(up.path, config.BACKUP_MAX_EXPANDED_MB * 1024 * 1024);
       const verified = await verifyBackup(source);
       const r = await restoreBackup({ pool, storage }, source, {
         actor: { ...actorFromReq(req), userId: auth.userId },

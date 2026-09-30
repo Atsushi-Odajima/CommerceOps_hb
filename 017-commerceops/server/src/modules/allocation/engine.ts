@@ -515,11 +515,27 @@ export async function runAllocation(
       opts.trigger,
       actor.userId,
     ]);
+    // 欠品で止まっている注文（未解決の欠品例外があり、未引当の明細のどの商品にも引当可能な在庫がない）は候補から外す。
+    // 在庫が入れば候補に戻る。新しい注文は必ず 1 回は処理される（欠品例外はそこで作られる）。
+    // これがないと、在庫待ちの注文が多い組織で毎回全件を再処理し、件数上限（手動の即時実行は 500 件）では新しい注文に順番が回らない。
     const rows = await tx.many(
-      `SELECT id FROM orders
-        WHERE organization_id = $1 AND status IN ('ready_for_allocation', 'partially_allocated', 'partially_shipped')
-          AND ($2::uuid[] IS NULL OR id = ANY($2))
-        ORDER BY priority DESC, due_at ASC NULLS LAST, order_date ASC, order_number ASC
+      `SELECT o.id FROM orders o
+        WHERE o.organization_id = $1 AND o.status IN ('ready_for_allocation', 'partially_allocated', 'partially_shipped')
+          AND ($2::uuid[] IS NULL OR o.id = ANY($2))
+          AND (
+            NOT EXISTS (
+              SELECT 1 FROM exception_cases e
+               WHERE e.organization_id = o.organization_id AND e.dedupe_key = 'shortage:' || o.id::text AND e.status IN ('open', 'investigating'))
+            OR EXISTS (
+              SELECT 1 FROM order_items oi
+                JOIN inventory_balances ib ON ib.organization_id = oi.organization_id AND ib.product_id = oi.product_id
+                JOIN locations l ON l.organization_id = ib.organization_id AND l.id = ib.location_id
+                JOIN warehouses w ON w.organization_id = ib.organization_id AND w.id = ib.warehouse_id
+               WHERE oi.organization_id = o.organization_id AND oi.order_id = o.id
+                 AND oi.quantity - oi.cancelled_qty - oi.shipped_qty - oi.allocated_qty > 0
+                 AND l.kind = 'pick' AND l.active AND w.active AND ib.on_hand - ib.allocated - ib.held > 0)
+          )
+        ORDER BY o.priority DESC, o.due_at ASC NULLS LAST, o.order_date ASC, o.order_number ASC
         LIMIT $3`,
       [orgId, opts.orderIds ?? null, opts.limit ?? 20000],
     );

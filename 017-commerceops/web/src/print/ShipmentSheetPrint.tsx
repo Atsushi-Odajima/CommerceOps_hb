@@ -23,7 +23,11 @@ export default function ShipmentSheetPrint() {
               <div style={{ fontFamily: 'monospace', fontSize: '18pt', fontWeight: 800 }}>{s.shipmentNumber}</div>
               <div>
                 注文 {s.orderNumber} / 箱 {s.boxNo}
-                {s.siblings.length ? `（全 ${s.siblings.length + 1} 箱）` : ''}
+                {(() => {
+                  // 同じ出荷作業（梱包）の取消していない箱だけを数える（同じ注文の別倉庫・取消した荷物は含めない）
+                  const boxes = s.siblings.filter((x: any) => x.fulfillmentId === s.fulfillmentId && x.status !== 'cancelled').length + 1;
+                  return boxes > 1 ? `（全 ${boxes} 箱）` : '';
+                })()}
               </div>
               <div>
                 倉庫 {s.warehouseCode} / 出荷作業 {s.fulfillmentNumber}

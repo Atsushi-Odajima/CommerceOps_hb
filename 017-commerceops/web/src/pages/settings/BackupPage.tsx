@@ -14,6 +14,7 @@ interface VerifyResult {
   counts: Record<string, number>;
   users: number;
   files: number;
+  missingFiles: number;
   sha256: string | null;
 }
 
@@ -147,7 +148,11 @@ export default function BackupPage() {
         </p>
         <ol className="steps">
           <li>
-            <Field label="バックアップファイル" htmlFor="bk-file" hint="CommerceOps でダウンロードした .ndjson.gz ファイル（ZIP は使えません）。1GB を超える場合はサーバー運用者がコマンドラインで復元します">
+            <Field
+              label="バックアップファイル"
+              htmlFor="bk-file"
+              hint={`CommerceOps でダウンロードした .ndjson.gz ファイル（ZIP は使えません）。画面で扱えるのはファイル ${runs.data?.limits?.maxUploadMb ?? 256}MB・展開後 ${runs.data?.limits?.maxExpandedMb ?? 1024}MB までで、超える場合はサーバー運用者がコマンドラインで復元します`}
+            >
               <input
                 id="bk-file"
                 ref={fileRef}
@@ -195,6 +200,7 @@ export default function BackupPage() {
                     <dt>件数</dt>
                     <dd>
                       合計 {fmtNum(totalRows(verify.counts))} 行・ユーザー {verify.users} 人・写真 {verify.files} 件
+                      {verify.missingFiles > 0 && `（うち ${verify.missingFiles} 件はバックアップ作成時に保存先にファイルがなく、画像は含まれていません）`}
                     </dd>
                     {verify.sha256 && (
                       <>

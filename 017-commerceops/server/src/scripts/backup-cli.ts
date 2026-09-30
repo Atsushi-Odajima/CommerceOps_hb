@@ -26,6 +26,8 @@ const { values } = parseArgs({
     out: { type: 'string' },
     list: { type: 'boolean', default: false },
     verify: { type: 'boolean', default: false },
+    // 写真ファイルが見つからなくても成功扱いにする（DATA_DIR を確認したうえで、欠落を承知で取る場合のみ）
+    'allow-missing-files': { type: 'boolean', default: false },
   },
 });
 
@@ -42,7 +44,7 @@ async function main() {
       return;
     }
     if (!values.org || !UUID_RE.test(values.org)) {
-      console.error('usage: backup --org <組織ID> [--out <path>] [--verify]   （組織ID は --list で確認）');
+      console.error('usage: backup --org <組織ID> [--out <path>] [--verify] [--allow-missing-files]   （組織ID は --list で確認）');
       process.exitCode = 2;
       return;
     }
@@ -86,7 +88,7 @@ async function main() {
         orgId,
         runId,
         s.sha256,
-        JSON.stringify({ counts: s.counts, users: s.users, files: s.files }),
+        JSON.stringify({ counts: s.counts, users: s.users, files: s.files, missingFiles: s.missingFiles }),
       ]),
     );
     const size = (await stat(out)).size;
@@ -94,7 +96,14 @@ async function main() {
     console.log(`organization: ${org.name} (${orgId})`);
     console.log(`file:         ${out}`);
     console.log(`size:         ${(size / 1024 / 1024).toFixed(2)} MB (gzip)`);
-    console.log(`rows:         ${rows}  users: ${s.users}  files: ${s.files}`);
+    console.log(`rows:         ${rows}  users: ${s.users}  files: ${s.files}${s.missingFiles ? `  (missing: ${s.missingFiles})` : ''}`);
+    if (s.missingFiles) {
+      console.error(
+        `警告: 写真 ${s.missingFiles} 件のファイルが保存先（DATA_DIR=${process.env.DATA_DIR ?? './data'}）に見つかりません。` +
+          `アプリと同じ DATA_DIR を指定して取り直してください（欠落を承知で取る場合は --allow-missing-files）。`,
+      );
+      if (!values['allow-missing-files']) process.exitCode = 1;
+    }
     console.log(`sha256:       ${s.sha256}`);
     for (const [t, n] of Object.entries(s.counts)) if (n) console.log(`  ${t.padEnd(24)} ${n}`);
     if (values.verify) {

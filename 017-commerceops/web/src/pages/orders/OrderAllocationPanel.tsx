@@ -71,6 +71,17 @@ export function OrderAllocationPanel({ order, onDone }: { order: any; onDone: ()
               揃った分を先行出荷
             </button>
           )}
+          {can('allocation.manage') && unreleased.length > 0 && needUnits === 0 && (
+            // 設定「全量引当になった注文を自動で Fulfillment にする」がオフのとき
+            <button
+              className="btn btn-sm btn-primary"
+              disabled={busy}
+              title="引当済みの商品で Fulfillment（出荷作業）を作成します"
+              onClick={() => void run(() => post(`/orders/${order.id}/release`, {}), () => '出荷作業（Fulfillment）を作成しました')}
+            >
+              出荷作業を作成
+            </button>
+          )}
           {can('allocation.manage') && releasable.length > 0 && (
             <button className="btn btn-sm" disabled={busy} onClick={() => setConfirmDealloc(true)}>
               引当解除

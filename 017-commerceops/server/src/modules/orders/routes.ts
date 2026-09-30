@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { hasPerm, orgTx, perm, requireOrg } from '../../http.js';
 import { conflict, notFound } from '../../lib/errors.js';
+import { cappedCount } from '../../lib/pagination.js';
 import { IdParams, parse, zPage } from '../../lib/validate.js';
 import { audit } from '../audit/audit.js';
 import { AddressSchema, NormalizedOrderSchema } from './normalized.js';
@@ -52,31 +53,47 @@ export async function orderRoutes(app: FastifyInstance) {
         params.push(q.to, tz);
         where.push(`o.order_date < (($${params.length - 1}::date + 1)::timestamp AT TIME ZONE $${params.length})`);
       }
+      let withSql = '';
       if (q.q) {
-        params.push(q.q);
-        const i = params.length;
-        // 個人情報での検索は read_pii 保持者のみ
-        const piiClause = level === 'full' ? ` OR o.recipient_name ILIKE '%' || $${i} || '%' OR o.customer_name ILIKE '%' || $${i} || '%' OR o.postal_code = $${i}` : '';
-        where.push(
-          `(o.order_number = $${i} OR o.external_order_id = $${i} OR o.external_order_id ILIKE $${i} || '%'
-            OR EXISTS (SELECT 1 FROM order_items oi WHERE oi.organization_id = o.organization_id AND oi.order_id = o.id AND oi.sku = $${i})${piiClause})`,
-        );
+        // 条件ごとに索引が使える問い合わせの UNION で候補 ID を先に 1 回だけ確定（MATERIALIZED）してから注文と突き合わせる。
+        // 1 つの OR や相関副問い合わせにすると全件走査・悪い結合順になる。外部注文番号は前方一致。各条件 10,000 件まで
+        // 前方一致は LEAKPROOF な ^@（RLS の下でも索引が使える。LIKE は使えない）
+        const esc = q.q.replace(/[\\%_]/g, (m) => '\\' + m);
+        params.push(q.q, q.q.toUpperCase(), `%${esc}%`);
+        const i = params.length - 2;
+        // 個人情報での検索は read_pii 保持者のみ。氏名は姓からの前方一致（全期間）+ 部分一致（直近 1 万件）
+        const piiBranches =
+          level === 'full'
+            ? ` UNION SELECT id FROM (SELECT id FROM orders WHERE organization_id = $1 AND recipient_name ^@ $${i} LIMIT 10000) r
+                UNION SELECT id FROM (SELECT id FROM orders WHERE organization_id = $1 AND customer_name ^@ $${i} LIMIT 10000) c
+                UNION SELECT id FROM (SELECT id, recipient_name, customer_name FROM orders WHERE organization_id = $1 ORDER BY order_date DESC LIMIT 10000) rc
+                       WHERE recipient_name ILIKE $${i + 2} OR customer_name ILIKE $${i + 2}
+                UNION SELECT id FROM (SELECT id FROM orders WHERE organization_id = $1 AND postal_code = $${i} LIMIT 10000) p`
+            : '';
+        withSql = `WITH hits AS MATERIALIZED (
+             SELECT id FROM orders WHERE organization_id = $1 AND order_number = $${i}
+             UNION SELECT id FROM (SELECT id FROM orders WHERE organization_id = $1 AND (external_order_id ^@ $${i} OR external_order_id ^@ $${i + 1}) LIMIT 10000) e
+             UNION SELECT order_id FROM (SELECT order_id FROM order_items WHERE organization_id = $1 AND sku = $${i} LIMIT 10000) s${piiBranches}) `;
+        where.push('o.id IN (SELECT id FROM hits)');
       }
       const order =
         q.sort === 'order_date_asc' ? 'o.order_date ASC, o.id ASC' : q.sort === 'priority' ? 'o.priority DESC, o.order_date ASC' : 'o.order_date DESC, o.id DESC';
       const whereSql = where.join(' AND ');
-      const total = (await tx.one(`SELECT count(*)::int AS n FROM orders o WHERE ${whereSql}`, params)).n;
+      const { total, totalCapped } = await cappedCount(tx, `FROM orders o WHERE ${whereSql}`, params, { prefix: withSql });
       params.push(q.limit, q.offset);
+      // 先に 1 ページ分の注文を決めてから、チャネル名・明細数を付ける
       const rows = await tx.many(
-        `SELECT o.*, c.name AS channel_name,
+        `${withSql}, page AS (
+           SELECT o.id FROM orders o WHERE ${whereSql} ORDER BY ${order} LIMIT $${params.length - 1} OFFSET $${params.length}
+         )
+         SELECT o.*, c.name AS channel_name,
                 (SELECT count(*)::int FROM order_items oi WHERE oi.organization_id = o.organization_id AND oi.order_id = o.id) AS item_count
-           FROM orders o JOIN sales_channels c ON c.organization_id = o.organization_id AND c.id = o.channel_id
-          WHERE ${whereSql}
-          ORDER BY ${order}
-          LIMIT $${params.length - 1} OFFSET $${params.length}`,
+           FROM page JOIN orders o ON o.organization_id = $1 AND o.id = page.id
+           JOIN sales_channels c ON c.organization_id = o.organization_id AND c.id = o.channel_id
+          ORDER BY ${order}`.replace(/^, page AS/, 'WITH page AS'),
         params,
       );
-      return { items: rows.map((r) => presentOrderListRow(r, level)), total };
+      return { items: rows.map((r) => presentOrderListRow(r, level)), total, totalCapped };
     });
   });
 

@@ -1,0 +1,738 @@
+{
+  "label": "stageB",
+  "at": "2026-09-30T06:47:46.833Z",
+  "bigOrg": {
+    "orders": 512505,
+    "items": 1537505,
+    "allocations": 1457505,
+    "pick_events": 1515000,
+    "shipments": 441000,
+    "returns": 49500,
+    "audit_logs": 2978015,
+    "movements": 1360000
+  },
+  "allOrgs": {
+    "orders": 564780,
+    "organizations": 52
+  },
+  "size": {
+    "dbBytes": 13045799959,
+    "dbGB": 12.15,
+    "tables": [
+      {
+        "t": "audit_logs",
+        "rows": 3283067,
+        "MB": 2324.1,
+        "heapMB": 985.7,
+        "idxMB": 1338
+      },
+      {
+        "t": "inventory_movements",
+        "rows": 1498682,
+        "MB": 1299.1,
+        "heapMB": 421.9,
+        "idxMB": 877
+      },
+      {
+        "t": "order_status_history",
+        "rows": 4236598,
+        "MB": 1244.3,
+        "heapMB": 572.6,
+        "idxMB": 671.5
+      },
+      {
+        "t": "pack_events",
+        "rows": 2421109,
+        "MB": 1160.9,
+        "heapMB": 511.1,
+        "idxMB": 649.6
+      },
+      {
+        "t": "allocations",
+        "rows": 1605988,
+        "MB": 886.6,
+        "heapMB": 451.9,
+        "idxMB": 434.5
+      },
+      {
+        "t": "pick_events",
+        "rows": 1669349,
+        "MB": 819.8,
+        "heapMB": 408.6,
+        "idxMB": 411.1
+      },
+      {
+        "t": "pick_task_lines",
+        "rows": 1503150,
+        "MB": 703.5,
+        "heapMB": 309,
+        "idxMB": 394.3
+      },
+      {
+        "t": "fulfillment_items",
+        "rows": 1512500,
+        "MB": 679,
+        "heapMB": 214.9,
+        "idxMB": 464.1
+      },
+      {
+        "t": "order_items",
+        "rows": 1694303,
+        "MB": 633.5,
+        "heapMB": 307.4,
+        "idxMB": 326
+      },
+      {
+        "t": "shipment_items",
+        "rows": 1444171,
+        "MB": 628.4,
+        "heapMB": 185,
+        "idxMB": 443.4
+      },
+      {
+        "t": "shipments",
+        "rows": 485982,
+        "MB": 477.9,
+        "heapMB": 197.9,
+        "idxMB": 279.8
+      },
+      {
+        "t": "orders",
+        "rows": 564761,
+        "MB": 445.8,
+        "heapMB": 242.5,
+        "idxMB": 203.2
+      },
+      {
+        "t": "import_batch_orders",
+        "rows": 551000,
+        "MB": 259.4,
+        "heapMB": 198.3,
+        "idxMB": 61
+      },
+      {
+        "t": "fulfillments",
+        "rows": 511884,
+        "MB": 231.9,
+        "heapMB": 115.8,
+        "idxMB": 116
+      },
+      {
+        "t": "pack_sessions",
+        "rows": 485982,
+        "MB": 197.4,
+        "heapMB": 80.8,
+        "idxMB": 116.6
+      },
+      {
+        "t": "customers",
+        "rows": 551000,
+        "MB": 165,
+        "heapMB": 111.3,
+        "idxMB": 53.6
+      },
+      {
+        "t": "wave_fulfillments",
+        "rows": 508573,
+        "MB": 141.2,
+        "heapMB": 41,
+        "idxMB": 100.2
+      },
+      {
+        "t": "returns",
+        "rows": 54551,
+        "MB": 29.1,
+        "heapMB": 12.2,
+        "idxMB": 16.9
+      },
+      {
+        "t": "exception_cases",
+        "rows": 35264,
+        "MB": 27.7,
+        "heapMB": 14.5,
+        "idxMB": 13.2
+      },
+      {
+        "t": "return_items",
+        "rows": 54512,
+        "MB": 22.3,
+        "heapMB": 7.1,
+        "idxMB": 15.2
+      },
+      {
+        "t": "return_inspections",
+        "rows": 44065,
+        "MB": 20.3,
+        "heapMB": 9.6,
+        "idxMB": 10.7
+      },
+      {
+        "t": "exception_events",
+        "rows": 35252,
+        "MB": 10.8,
+        "heapMB": 5.6,
+        "idxMB": 5.1
+      },
+      {
+        "t": "exchanges",
+        "rows": 13775,
+        "MB": 5.2,
+        "heapMB": 2.2,
+        "idxMB": 3
+      },
+      {
+        "t": "exchange_items",
+        "rows": 13775,
+        "MB": 2.7,
+        "heapMB": 1.5,
+        "idxMB": 1.2
+      },
+      {
+        "t": "import_batches",
+        "rows": 1102,
+        "MB": 2.7,
+        "heapMB": 2.2,
+        "idxMB": 0.4
+      },
+      {
+        "t": "pick_tasks",
+        "rows": 6061,
+        "MB": 2.7,
+        "heapMB": 1.1,
+        "idxMB": 1.5
+      },
+      {
+        "t": "waves",
+        "rows": 6061,
+        "MB": 2.6,
+        "heapMB": 1,
+        "idxMB": 1.6
+      },
+      {
+        "t": "inventory_balances",
+        "rows": 5044,
+        "MB": 2.1,
+        "heapMB": 0.6,
+        "idxMB": 1.4
+      },
+      {
+        "t": "locations",
+        "rows": 2392,
+        "MB": 1.1,
+        "heapMB": 0.3,
+        "idxMB": 0.8
+      },
+      {
+        "t": "allocation_runs",
+        "rows": 2757,
+        "MB": 0.8,
+        "heapMB": 0.4,
+        "idxMB": 0.4
+      },
+      {
+        "t": "holds",
+        "rows": 1653,
+        "MB": 0.8,
+        "heapMB": 0.2,
+        "idxMB": 0.5
+      },
+      {
+        "t": "product_barcodes",
+        "rows": 2080,
+        "MB": 0.8,
+        "heapMB": 0.2,
+        "idxMB": 0.5
+      },
+      {
+        "t": "products",
+        "rows": 2080,
+        "MB": 0.6,
+        "heapMB": 0.2,
+        "idxMB": 0.3
+      },
+      {
+        "t": "import_profiles",
+        "rows": 156,
+        "MB": 0.4,
+        "heapMB": 0.3,
+        "idxMB": 0
+      },
+      {
+        "t": "counters",
+        "rows": 468,
+        "MB": 0.1,
+        "heapMB": 0,
+        "idxMB": 0
+      },
+      {
+        "t": "sales_channels",
+        "rows": 156,
+        "MB": 0.1,
+        "heapMB": 0,
+        "idxMB": 0
+      },
+      {
+        "t": "warehouses",
+        "rows": 104,
+        "MB": 0.1,
+        "heapMB": 0,
+        "idxMB": 0
+      },
+      {
+        "t": "sessions",
+        "rows": 11,
+        "MB": 0.1,
+        "heapMB": 0,
+        "idxMB": 0.1
+      },
+      {
+        "t": "security_events",
+        "rows": 11,
+        "MB": 0,
+        "heapMB": 0,
+        "idxMB": 0
+      },
+      {
+        "t": "users",
+        "rows": 9,
+        "MB": 0,
+        "heapMB": 0,
+        "idxMB": 0
+      },
+      {
+        "t": "memberships",
+        "rows": 10,
+        "MB": 0,
+        "heapMB": 0,
+        "idxMB": 0
+      },
+      {
+        "t": "jobs",
+        "rows": 0,
+        "MB": 0,
+        "heapMB": 0,
+        "idxMB": 0
+      },
+      {
+        "t": "schema_migrations",
+        "rows": 2,
+        "MB": 0,
+        "heapMB": 0,
+        "idxMB": 0
+      },
+      {
+        "t": "invitations",
+        "rows": 0,
+        "MB": 0,
+        "heapMB": 0,
+        "idxMB": 0
+      },
+      {
+        "t": "organizations",
+        "rows": 52,
+        "MB": 0,
+        "heapMB": 0,
+        "idxMB": 0
+      },
+      {
+        "t": "order_address_history",
+        "rows": 0,
+        "MB": 0,
+        "heapMB": 0,
+        "idxMB": 0
+      },
+      {
+        "t": "attachments",
+        "rows": 0,
+        "MB": 0,
+        "heapMB": 0,
+        "idxMB": 0
+      },
+      {
+        "t": "password_resets",
+        "rows": 0,
+        "MB": 0,
+        "heapMB": 0,
+        "idxMB": 0
+      },
+      {
+        "t": "backup_runs",
+        "rows": 0,
+        "MB": 0,
+        "heapMB": 0,
+        "idxMB": 0
+      }
+    ]
+  },
+  "api": {
+    "orders.list (最新 50)": {
+      "n": 3,
+      "totalMs": 32,
+      "p50": 10.2,
+      "p95": 15.4,
+      "max": 15.4
+    },
+    "orders.list (状態: 引当待ち)": {
+      "n": 3,
+      "totalMs": 26,
+      "p50": 7.6,
+      "p95": 11.2,
+      "max": 11.2
+    },
+    "orders.list (未完了)": {
+      "n": 3,
+      "totalMs": 31,
+      "p50": 10.1,
+      "p95": 11,
+      "max": 11
+    },
+    "orders.status_counts": {
+      "n": 3,
+      "totalMs": 102,
+      "p50": 32.5,
+      "p95": 37.8,
+      "max": 37.8
+    },
+    "dashboard.home": {
+      "n": 3,
+      "totalMs": 716,
+      "p50": 233,
+      "p95": 253,
+      "max": 253
+    },
+    "dashboard.badges": {
+      "n": 3,
+      "totalMs": 22,
+      "p50": 7.1,
+      "p95": 8.6,
+      "max": 8.6
+    },
+    "orders.detail": {
+      "n": 10,
+      "totalMs": 143,
+      "p50": 13.2,
+      "p95": 23.5,
+      "max": 23.5
+    },
+    "search: 注文番号": {
+      "n": 10,
+      "totalMs": 276,
+      "p50": 27.1,
+      "p95": 33.3,
+      "max": 33.3
+    },
+    "search: 外部注文番号": {
+      "n": 10,
+      "totalMs": 268,
+      "p50": 26.9,
+      "p95": 33.1,
+      "max": 33.1
+    },
+    "search: 追跡番号": {
+      "n": 10,
+      "totalMs": 279,
+      "p50": 26.5,
+      "p95": 40.5,
+      "max": 40.5
+    },
+    "search: 郵便番号": {
+      "n": 10,
+      "totalMs": 215,
+      "p50": 21.7,
+      "p95": 22.5,
+      "max": 22.5
+    },
+    "search: 氏名（姓）": {
+      "n": 10,
+      "totalMs": 200,
+      "p50": 19.8,
+      "p95": 23.7,
+      "max": 23.7
+    },
+    "search: 返品番号": {
+      "n": 1,
+      "totalMs": 26,
+      "p50": 25.8,
+      "p95": 25.8,
+      "max": 25.8
+    },
+    "search: SKU": {
+      "n": 3,
+      "totalMs": 136,
+      "p50": 45.3,
+      "p95": 53.5,
+      "max": 53.5
+    },
+    "orders.list (外部注文番号の前方一致)": {
+      "n": 3,
+      "totalMs": 454,
+      "p50": 155,
+      "p95": 159.2,
+      "max": 159.2
+    },
+    "fulfillments.list (Wave 待ち)": {
+      "n": 3,
+      "totalMs": 91,
+      "p50": 25.3,
+      "p95": 40.6,
+      "max": 40.6
+    },
+    "waves.list": {
+      "n": 3,
+      "totalMs": 30,
+      "p50": 8.8,
+      "p95": 12.8,
+      "max": 12.8
+    },
+    "waves.preview (Wave 作成画面)": {
+      "n": 3,
+      "totalMs": 62,
+      "p50": 18.6,
+      "p95": 25.6,
+      "max": 25.6
+    },
+    "pick-tasks.list": {
+      "n": 3,
+      "totalMs": 11,
+      "p50": 3.4,
+      "p95": 4.6,
+      "max": 4.6
+    },
+    "pack.queue": {
+      "n": 3,
+      "totalMs": 88,
+      "p50": 28.7,
+      "p95": 32,
+      "max": 32
+    },
+    "shipments.list (出荷待ち)": {
+      "n": 3,
+      "totalMs": 113,
+      "p50": 37.4,
+      "p95": 41.6,
+      "max": 41.6
+    },
+    "shipments.list (出荷済み)": {
+      "n": 3,
+      "totalMs": 78,
+      "p50": 22.8,
+      "p95": 32.5,
+      "max": 32.5
+    },
+    "returns.list": {
+      "n": 3,
+      "totalMs": 140,
+      "p50": 44,
+      "p95": 52.8,
+      "max": 52.8
+    },
+    "exceptions.list (未解決)": {
+      "n": 3,
+      "totalMs": 376,
+      "p50": 126.1,
+      "p95": 126.9,
+      "max": 126.9
+    },
+    "audit.list": {
+      "n": 3,
+      "totalMs": 25,
+      "p50": 7.2,
+      "p95": 11.5,
+      "max": 11.5
+    },
+    "inventory.list (在庫一覧)": {
+      "n": 3,
+      "totalMs": 480,
+      "p50": 157,
+      "p95": 170.9,
+      "max": 170.9
+    },
+    "inventory.balances (商品別)": {
+      "n": 3,
+      "totalMs": 11,
+      "p50": 3.5,
+      "p95": 4.6,
+      "max": 4.6
+    },
+    "inventory.movements": {
+      "n": 3,
+      "totalMs": 1414,
+      "p50": 471.2,
+      "p95": 474.4,
+      "max": 474.4
+    },
+    "assignments": {
+      "n": 3,
+      "totalMs": 376,
+      "p50": 124.6,
+      "p95": 126.9,
+      "max": 126.9
+    },
+    "kpi (30 日)": {
+      "n": 3,
+      "totalMs": 4380,
+      "p50": 1442.3,
+      "p95": 1524.1,
+      "max": 1524.1
+    },
+    "orders.create_manual": {
+      "n": 5,
+      "totalMs": 64,
+      "p50": 9.4,
+      "p95": 26.4,
+      "max": 26.4
+    },
+    "orders.allocate (1 件)": {
+      "n": 5,
+      "totalMs": 100,
+      "p50": 18.7,
+      "p95": 27.7,
+      "max": 27.7
+    },
+    "allocation.run_now (候補抽出 + 処理)": {
+      "n": 2,
+      "totalMs": 1567,
+      "p50": 842.1,
+      "p95": 842.1,
+      "max": 842.1
+    }
+  },
+  "plans": {
+    "orders: 最新 50 件": {
+      "ms": 0.3,
+      "seqScans": [],
+      "nodes": [
+        "Limit",
+        "Incremental Sort",
+        "Index Scan on orders using orders_date_idx"
+      ]
+    },
+    "orders: 状態別 50 件": {
+      "ms": 0.4,
+      "seqScans": [],
+      "nodes": [
+        "Limit",
+        "Incremental Sort",
+        "Index Scan on orders using orders_status_date_idx"
+      ]
+    },
+    "orders: 注文番号": {
+      "ms": 0,
+      "seqScans": [],
+      "nodes": [
+        "Index Scan on orders using orders_organization_id_order_number_key"
+      ]
+    },
+    "orders: 外部注文番号": {
+      "ms": 0,
+      "seqScans": [],
+      "nodes": [
+        "Index Scan on orders using orders_ext_idx"
+      ]
+    },
+    "orders: 郵便番号": {
+      "ms": 0.2,
+      "seqScans": [],
+      "nodes": [
+        "Limit",
+        "Index Scan on orders using orders_date_idx"
+      ]
+    },
+    "shipments: 追跡番号": {
+      "ms": 0,
+      "seqScans": [],
+      "nodes": [
+        "Index Scan on shipments using shipments_tracking_idx"
+      ]
+    },
+    "order_items: 注文の明細": {
+      "ms": 0.1,
+      "seqScans": [],
+      "nodes": [
+        "Index Scan on order_items using order_items_order_idx"
+      ]
+    },
+    "allocations: 注文の引当": {
+      "ms": 0,
+      "seqScans": [],
+      "nodes": [
+        "Index Scan on allocations using allocations_order_idx"
+      ]
+    },
+    "pick_events: タスクの記録": {
+      "ms": 2.1,
+      "seqScans": [
+        "Seq Scan on pick_tasks"
+      ],
+      "nodes": [
+        "Index Scan on pick_events using pick_events_task_idx",
+        "Limit",
+        "Sort",
+        "Seq Scan on pick_tasks"
+      ]
+    },
+    "fulfillments: Wave 待ち": {
+      "ms": 0.4,
+      "seqScans": [],
+      "nodes": [
+        "Limit",
+        "Bitmap Heap Scan on fulfillments",
+        "Bitmap Index Scan using fulfillments_wave_idx"
+      ]
+    },
+    "audit: 最新 50 件": {
+      "ms": 0.1,
+      "seqScans": [],
+      "nodes": [
+        "Limit",
+        "Incremental Sort",
+        "Index Scan on audit_logs using audit_logs_created_idx"
+      ]
+    },
+    "audit: 操作の種類で絞り込み（まれな操作）": {
+      "ms": 0.1,
+      "seqScans": [],
+      "nodes": [
+        "Limit",
+        "Sort",
+        "Index Scan on audit_logs using audit_logs_action_idx"
+      ]
+    },
+    "audit: 操作の種類で絞り込み（多い操作）": {
+      "ms": 5.4,
+      "seqScans": [],
+      "nodes": [
+        "Limit",
+        "Incremental Sort",
+        "Index Scan on audit_logs using audit_logs_created_idx"
+      ]
+    },
+    "audit: 対象の履歴": {
+      "ms": 0,
+      "seqScans": [],
+      "nodes": [
+        "Limit",
+        "Index Scan on audit_logs using audit_logs_entity_idx"
+      ]
+    },
+    "movements: 残高の履歴": {
+      "ms": 0.5,
+      "seqScans": [],
+      "nodes": [
+        "Limit",
+        "Limit",
+        "Index Only Scan on inventory_balances using inventory_balances_pkey",
+        "Index Scan on inventory_movements using inventory_movements_balance_idx"
+      ]
+    }
+  },
+  "integrity": {
+    "violations": 0,
+    "ms": 38578,
+    "sample": []
+  },
+  "backup": {
+    "ms": 1005720,
+    "gzipBytes": 1313030644
+  }
+}

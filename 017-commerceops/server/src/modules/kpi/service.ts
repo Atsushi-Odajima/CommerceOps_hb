@@ -26,10 +26,15 @@ export async function computeKpi(tx: Tx, p: { from: string; to: string; timezone
   const whScope = (col: string) => `($5::uuid[] IS NULL OR ${col} = ANY($5))`;
 
   const orders = await tx.one(
-    `WITH o AS (
-       SELECT o.id, o.order_date, o.cancelled_at,
-              (SELECT min(s.shipped_at) FROM shipments s WHERE s.organization_id = o.organization_id AND s.order_id = o.id AND s.status = 'shipped') AS first_ship
-         FROM orders o
+    // 最初の出荷日時は、期間開始以降に出荷された荷物だけを 1 回集計して結合する（注文ごとの相関副問い合わせにしない）。
+    // 期間内の注文の出荷は必ず期間開始以降なので結果は同じ
+    `WITH fs AS (
+       SELECT s.order_id, min(s.shipped_at) AS first_ship FROM shipments s
+        WHERE s.organization_id = $1 AND s.status = 'shipped' AND s.shipped_at >= ${start}
+        GROUP BY s.order_id
+     ), o AS (
+       SELECT o.id, o.order_date, o.cancelled_at, fs.first_ship
+         FROM orders o LEFT JOIN fs ON fs.order_id = o.id
         WHERE o.organization_id = $1 AND o.order_type = 'standard' AND o.order_date >= ${start} AND o.order_date < ${end} AND ${orderScope})
      SELECT count(*)::int AS received,
             count(*) FILTER (WHERE cancelled_at IS NOT NULL)::int AS cancelled,
@@ -42,17 +47,24 @@ export async function computeKpi(tx: Tx, p: { from: string; to: string; timezone
     base,
   );
   const ship = await tx.one(
-    `SELECT count(*)::int AS shipments, count(DISTINCT s.order_id)::int AS orders,
-            COALESCE(SUM((SELECT SUM(si.quantity) FROM shipment_items si WHERE si.organization_id = s.organization_id AND si.shipment_id = s.id)), 0)::int AS units
-       FROM shipments s
-      WHERE s.organization_id = $1 AND s.status = 'shipped' AND s.shipped_at >= ${start} AND s.shipped_at < ${end} AND ${whScope('s.warehouse_id')}`,
+    `WITH s AS (
+       SELECT s.id, s.order_id FROM shipments s
+        WHERE s.organization_id = $1 AND s.status = 'shipped' AND s.shipped_at >= ${start} AND s.shipped_at < ${end} AND ${whScope('s.warehouse_id')}
+     )
+     SELECT (SELECT count(*) FROM s)::int AS shipments, (SELECT count(DISTINCT order_id) FROM s)::int AS orders,
+            (SELECT COALESCE(SUM(si.quantity), 0) FROM shipment_items si JOIN s ON s.id = si.shipment_id WHERE si.organization_id = $1)::int AS units`,
     base,
   );
   const split = await tx.one(
-    `WITH firsts AS (
+    `WITH cand AS (
+       -- 期間内に出荷がある注文だけを対象にする（組織の全出荷を集計しない）
+       SELECT DISTINCT s.order_id FROM shipments s
+        WHERE s.organization_id = $1 AND s.status = 'shipped' AND s.shipped_at >= ${start} AND s.shipped_at < ${end} AND ${whScope('s.warehouse_id')}
+     ), firsts AS (
        SELECT s.order_id, min(s.shipped_at) AS first_ship, count(*) AS n
-         FROM shipments s JOIN orders o ON o.organization_id = s.organization_id AND o.id = s.order_id AND o.order_type = 'standard'
-        WHERE s.organization_id = $1 AND s.status = 'shipped' AND ${whScope('s.warehouse_id')}
+         FROM cand JOIN shipments s ON s.organization_id = $1 AND s.order_id = cand.order_id
+         JOIN orders o ON o.organization_id = s.organization_id AND o.id = s.order_id AND o.order_type = 'standard'
+        WHERE s.status = 'shipped' AND ${whScope('s.warehouse_id')}
         GROUP BY s.order_id)
      SELECT count(*)::int AS orders, count(*) FILTER (WHERE n > 1)::int AS split FROM firsts WHERE first_ship >= ${start} AND first_ship < ${end}`,
     base,

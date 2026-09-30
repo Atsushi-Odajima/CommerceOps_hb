@@ -93,6 +93,7 @@ export default function AuditPage() {
           )}
         </div>
       )}
+      {list.data?.textSearchFrom && <p className="small muted">内容の検索は直近 90 日（{list.data.textSearchFrom} 以降）を対象にしています。それより前を探す場合は期間を指定してください。</p>}
       <ErrorBox error={list.error} />
       {list.isLoading ? (
         <Loading />
@@ -168,7 +169,7 @@ export default function AuditPage() {
               })}
             </tbody>
           </table>
-          <Pagination offset={offset} limit={50} total={list.data?.total ?? 0} onChange={setOffset} />
+          <Pagination offset={offset} limit={50} total={list.data?.total ?? 0} capped={list.data?.totalCapped} onChange={setOffset} />
         </div>
       )}
     </>

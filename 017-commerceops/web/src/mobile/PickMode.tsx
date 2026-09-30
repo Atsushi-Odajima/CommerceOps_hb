@@ -8,6 +8,7 @@ import { enqueue, flushQueue, listQueued } from '../offline/queue';
 import { feedbackDone, feedbackError, feedbackOk } from '../scanner/feedback';
 import { ScanInput, type InputMethod, type ScanInputHandle } from '../scanner/ScanInput';
 import { MobileShell, useUnsyncedCount } from './MobileShell';
+import { matchesCode } from '../lib/gtin';
 
 interface Group {
   key: string;
@@ -105,7 +106,7 @@ export default function PickMode() {
     const clientEventId = newRequestId();
     const payload = { locationId: current.locationId, productId: current.productId, code, qty, inputMethod: method };
     const offlineAccept = async () => {
-      if (!current.barcodes.includes(code.trim())) {
+      if (!matchesCode(current.barcodes, code)) {
         show('error', `違う商品です（正: ${current.sku}）※オフライン判定`);
         return;
       }

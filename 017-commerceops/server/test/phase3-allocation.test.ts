@@ -4,6 +4,7 @@ import { addMember } from './helpers/factory.js';
 import { availability, importCsv, locationsOf, manualOrder, orderRow, receive, setupBasicOrg, stdCsv, uploadFile } from './helpers/scenario.js';
 import { expectIntegrity } from './helpers/integrity.js';
 import { startWorker } from '../src/jobs/worker.js';
+import { runAllocation } from '../src/modules/allocation/engine.js';
 
 let env: TestEnv;
 beforeAll(async () => {
@@ -273,6 +274,46 @@ describe('multi-warehouse rules, partial release, holds, shortages', () => {
     const d = expectStatus(await s.owner.client.get(`/api/orders/${o.id}`), 200).body;
     expect(d.items[0].quantity).toBe(1);
     expect(d.exceptions.some((e: any) => e.type === 'import_conflict')).toBe(true);
+  });
+
+  it('allocation runs skip orders stuck on a shortage until stock arrives, so new orders are never starved by the run limit', async () => {
+    const s = await setupBasicOrg(env);
+    const locs = await locationsOf(s.owner.client, s.warehouseId);
+    await receive(s.owner.client, locs['A-01']!, s.products['SKU-A']!, 5);
+    const actor = { userId: s.owner.client.userId, type: 'user' as const };
+    // SKU-C は在庫なし → 1 回目は処理され、欠品例外ができる
+    const stuck = [];
+    for (let i = 0; i < 3; i++) stuck.push(await manualOrder(s.owner.client, s.channelId, `STUCK-${i}`, [{ sku: 'SKU-C', quantity: 1 }]));
+    const first = await runAllocation(env.deps, s.orgId, actor, { trigger: 'manual', limit: 10 });
+    expect(first).toMatchObject({ considered: 3, none: 3 });
+    const exc = await env.tx(s.orgId, (tx) => tx.one(`SELECT count(*)::int AS n FROM exception_cases WHERE organization_id = $1 AND type = 'shortage' AND status = 'open'`, [s.orgId]));
+    expect(exc.n).toBe(3);
+    // 2 回目以降は在庫がないので候補に入らない。件数上限（ここでは 2 件）でも新しい注文が処理される
+    const fresh = await manualOrder(s.owner.client, s.channelId, 'FRESH-1', [{ sku: 'SKU-A', quantity: 1 }]);
+    const second = await runAllocation(env.deps, s.orgId, actor, { trigger: 'manual', limit: 2 });
+    expect(second).toMatchObject({ considered: 1, full: 1 });
+    expect((await env.tx(s.orgId, (tx) => tx.one(`SELECT status FROM orders WHERE organization_id = $1 AND id = $2`, [s.orgId, fresh.id]))).status).toBe('allocated');
+    // 在庫が入ると候補に戻り、引当・欠品例外の自動解消
+    await receive(s.owner.client, locs['A-03']!, s.products['SKU-C']!, 2);
+    const third = await runAllocation(env.deps, s.orgId, actor, { trigger: 'manual', limit: 10 });
+    expect(third).toMatchObject({ considered: 3, full: 2, none: 1 });
+    // 一部だけ引当できた注文（一部引当）も、残りの商品に在庫がなければ候補から外れる
+    const mixed = await manualOrder(s.owner.client, s.channelId, 'MIXED-1', [
+      { sku: 'SKU-A', quantity: 1 },
+      { sku: 'SKU-C', quantity: 1 },
+    ]);
+    const fourth = await runAllocation(env.deps, s.orgId, actor, { trigger: 'manual', limit: 10 });
+    expect(fourth).toMatchObject({ considered: 1, partial: 1 });
+    expect(await runAllocation(env.deps, s.orgId, actor, { trigger: 'manual', limit: 10 })).toMatchObject({ considered: 0 });
+    // 欠品例外を手動で「対応不要」にすると、次の実行で 1 回だけ再試行される（例外が再作成される）
+    const openExc = await env.tx(s.orgId, (tx) => tx.one(`SELECT id FROM exception_cases WHERE organization_id = $1 AND dedupe_key = $2 AND status = 'open'`, [s.orgId, `shortage:${mixed.id}`]));
+    expectStatus(await s.owner.client.post(`/api/exceptions/${openExc.id}/status`, { status: 'ignored', ignoredReason: '入荷予定を確認済み' }), 200);
+    expect(await runAllocation(env.deps, s.orgId, actor, { trigger: 'manual', limit: 10 })).toMatchObject({ considered: 1, none: 1 });
+    const recreated = await env.tx(s.orgId, (tx) => tx.one(`SELECT count(*)::int AS n FROM exception_cases WHERE organization_id = $1 AND dedupe_key = $2 AND status = 'open'`, [s.orgId, `shortage:${mixed.id}`]));
+    expect(recreated.n).toBe(1);
+    expect(await runAllocation(env.deps, s.orgId, actor, { trigger: 'manual', limit: 10 })).toMatchObject({ considered: 0 });
+    void stuck;
+    await expectIntegrity(env, s.orgId);
   });
 
   it('line cancellation of an unallocated remainder turns a partially allocated order into allocated', async () => {

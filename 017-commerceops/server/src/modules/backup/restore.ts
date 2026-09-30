@@ -13,6 +13,7 @@ import type { Storage } from '../attachments/storage.js';
 import { audit } from '../audit/audit.js';
 import { checkIntegrity } from '../integrity/check.js';
 import { BACKUP_FORMAT, BACKUP_FORMAT_VERSION, BACKUP_TABLES, USER_COLUMNS, type BackupHeader, type BackupTable, type BackupTrailer } from './format.js';
+import { enqueue } from '../../jobs/queue.js';
 
 export type LineSource = () => AsyncIterable<string>;
 
@@ -54,6 +55,8 @@ export interface VerifyResult {
   users: number;
   memberships: number;
   files: number;
+  /** バックアップ作成時に保存先にファイルがなく「欠落」として記録された写真の数 */
+  missingFiles: number;
 }
 
 /**
@@ -69,6 +72,8 @@ export async function verifyBackup(source: LineSource): Promise<VerifyResult> {
   let users = 0;
   let memberships = 0;
   let files = 0;
+  let missingFiles = 0;
+  let tooLarge = false;
   let lastIdx = -1;
   let lineNo = 0;
   const attachmentIds = new Set<string>();
@@ -137,7 +142,8 @@ export async function verifyBackup(source: LineSource): Promise<VerifyResult> {
         case 'file': {
           files++;
           if (!attachmentIds.has(obj.id)) fail(`${lineNo} 行目: 添付ファイルに対応する行がありません`);
-          if (!obj.missing) {
+          if (obj.missing) missingFiles++;
+          else {
             const data = Buffer.from(String(obj.data ?? ''), 'base64');
             if (createHash('sha256').update(data).digest('hex') !== obj.sha256) fail(`${lineNo} 行目: 添付ファイルのハッシュが一致しません`);
           }
@@ -149,11 +155,14 @@ export async function verifyBackup(source: LineSource): Promise<VerifyResult> {
       if (errors.length >= 20) break;
     }
   } catch (e) {
+    tooLarge = e instanceof AppError && e.code === 'BACKUP_TOO_LARGE';
     fail(e instanceof AppError ? e.message : `ファイルを最後まで読めませんでした（破損または途中までのファイル）: ${(e as Error).message}`.slice(0, 300));
   }
   if (!header) fail('ヘッダーがありません');
-  if (!trailer) fail('最終行（trailer）がありません。ダウンロードが途中で止まったファイルの可能性があります');
-  else {
+  // 上限で読むのを止めた場合は最終行まで届いていないだけなので、「途中で止まったファイル」とは言わない
+  if (!trailer) {
+    if (!tooLarge) fail('最終行（trailer）がありません。ダウンロードが途中で止まったファイルの可能性があります');
+  } else {
     for (const t of BACKUP_TABLES) {
       const expected = trailer.counts?.[t] ?? 0;
       if ((counts[t] ?? 0) !== expected) fail(`${t}: 件数が一致しません（ファイル内 ${counts[t] ?? 0} / 記録 ${expected}）`);
@@ -163,7 +172,7 @@ export async function verifyBackup(source: LineSource): Promise<VerifyResult> {
     if (trailer.users !== users || trailer.memberships !== memberships || trailer.files !== files) fail('ユーザー・メンバー・添付ファイルの件数が一致しません');
     if (trailer.sha256 !== all.digest('hex')) fail('ファイル全体のチェックサムが一致しません（改ざん・破損の可能性）');
   }
-  return { ok: errors.length === 0, errors: [...new Set(errors)].slice(0, 20), header, trailer, counts, users, memberships, files };
+  return { ok: errors.length === 0, errors: [...new Set(errors)].slice(0, 20), header, trailer, counts, users, memberships, files, missingFiles };
 }
 
 export interface RestoreResult {
@@ -344,6 +353,8 @@ export async function restoreBackup(
       summary: `バックアップ（${h.createdAt.slice(0, 16)} 作成）から組織「${name}」を復元（${totals} 行）`,
       metadata: { sourceOrganizationId: h.organization.id, rows: totals, users: userStats },
     });
+    // 復元した行を統計情報に反映する（大きな組織がある DB でも、新しい組織の問い合わせが行数を見誤らないように）。worker が実行する
+    await enqueue(client, { type: 'db.analyze', payload: { tables: [...BACKUP_TABLES] }, dedupeKey: 'db.analyze' });
     await client.query('COMMIT');
     return { organizationId: newOrgId, name, counts: v.counts, users: userStats, unlinkedUsers: [...unlinked.values()].slice(0, 500) };
   } catch (e) {

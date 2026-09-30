@@ -85,7 +85,7 @@ function ReturnWork({ returnId, onBack }: { returnId: string; onBack: () => void
       </div>
       {receivable && can('returns.receive') && <MobileReceive ret={r} onDone={refresh} />}
       {receivable && !can('returns.receive') && <div className="alert info">到着登録の権限がありません。</div>}
-      {inspectable && can('returns.inspect') && <MobileInspect ret={r} onDone={refresh} />}
+      {inspectable && can('returns.inspect') && <MobileInspect key={r.items.map((i: any) => `${i.id}:${i.inspectedQty}`).join(',')} ret={r} onDone={refresh} />}
       {inspectable && !can('returns.inspect') && <div className="alert info">到着済みです。検品（再販可・破損の判定）は管理者が行います。</div>}
       {r.status === 'completed' && (
         <div className="alert success">

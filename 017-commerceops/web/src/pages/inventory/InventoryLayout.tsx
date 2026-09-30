@@ -7,7 +7,7 @@ export default function InventoryLayout() {
   return (
     <>
       <PageHeader title="在庫・商品" sub="Fulfillment に必要な最小在庫台帳（OnHand / Allocated / 調査中 / Available）。仕入・本格棚卸は対象外です。" />
-      <div className="tabs">
+      <nav className="tabs" aria-label="在庫・商品の項目">
         {can('inventory.read') && (
           <NavLink to="/inventory" end className={({ isActive }) => `tab ${isActive ? 'active' : ''}`}>
             在庫
@@ -21,7 +21,7 @@ export default function InventoryLayout() {
             在庫履歴
           </NavLink>
         )}
-      </div>
+      </nav>
       <Outlet />
     </>
   );
