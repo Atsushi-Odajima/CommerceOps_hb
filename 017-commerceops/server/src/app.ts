@@ -145,7 +145,7 @@ export async function buildApp(deps: AppDeps, opts: BuildAppOptions = {}): Promi
   if (hasWeb) {
     await app.register(fastifyStatic, {
       root: webDist,
-      wildcard: false,
+      wildcard: true,
       index: false,
       setHeaders: (reply, path) => {
         if (/[\\/]assets[\\/]/.test(path)) reply.header('Cache-Control', 'public, max-age=31536000, immutable');
@@ -154,7 +154,9 @@ export async function buildApp(deps: AppDeps, opts: BuildAppOptions = {}): Promi
     });
   }
   app.setNotFoundHandler((req, reply) => {
-    if (req.url.startsWith('/api/') || !hasWeb || req.method !== 'GET') {
+    const path = req.url.split('?')[0]!;
+    // API・アセット（拡張子付き）・GET 以外は 404。SPA のルートだけ index.html を返す
+    if (path.startsWith('/api/') || !hasWeb || req.method !== 'GET' || path.startsWith('/assets/') || /\.[a-z0-9]{2,5}$/i.test(path)) {
       return reply.status(404).send({ error: { code: 'NOT_FOUND', message: 'Not found' } });
     }
     reply.header('Cache-Control', 'no-cache');

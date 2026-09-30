@@ -120,6 +120,30 @@ export function Layout() {
             );
           })}
         </nav>
+        <div className="sidebar-footer">
+          <div className="small" style={{ color: '#fff' }}>{me.user.name}</div>
+          <div className="small" style={{ color: '#8797ad' }}>
+            {me.organization.name} / {me.roleLabel}
+          </div>
+          {me.memberships.length > 1 && (
+            <select
+              aria-label="組織を切り替え（メニュー）"
+              value={me.organization.id}
+              onChange={(e) => void switchOrg(e.target.value).then(() => nav('/'))}
+              style={{ marginTop: 6 }}
+            >
+              {me.memberships.map((m) => (
+                <option key={m.organizationId} value={m.organizationId}>
+                  {m.name}
+                  {m.isSample ? '（サンプル）' : ''}
+                </option>
+              ))}
+            </select>
+          )}
+          <button className="btn btn-sm" style={{ marginTop: 8 }} onClick={() => void logout().then(() => nav('/login'))}>
+            <IconLogout /> ログアウト
+          </button>
+        </div>
       </aside>
       {open && <div className="scrim" onClick={() => setOpen(false)} />}
       <div className="main">
@@ -159,6 +183,7 @@ export function Layout() {
           <div className="spacer" />
           {me.memberships.length > 1 ? (
             <select
+              className="topbar-extra"
               aria-label="組織を切り替え"
               value={me.organization.id}
               onChange={(e) => void switchOrg(e.target.value).then(() => nav('/'))}
@@ -172,13 +197,13 @@ export function Layout() {
               ))}
             </select>
           ) : (
-            <span className="muted small nowrap">{me.organization.name}</span>
+            <span className="muted small nowrap topbar-extra">{me.organization.name}</span>
           )}
-          <span className="small nowrap" title={me.user.email}>
+          <span className="small nowrap topbar-extra" title={me.user.email}>
             {me.user.name}
             <span className="muted">（{me.roleLabel}）</span>
           </span>
-          <button className="btn btn-ghost btn-sm" onClick={() => void logout().then(() => nav('/login'))} aria-label="ログアウト">
+          <button className="btn btn-ghost btn-sm topbar-extra" onClick={() => void logout().then(() => nav('/login'))} aria-label="ログアウト">
             <IconLogout />
           </button>
         </header>

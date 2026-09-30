@@ -91,6 +91,15 @@ code, .mono { font-family: var(--mono); font-size: 0.92em; }
 .page-header .sub { color: var(--c-text-muted); font-size: 0.9rem; }
 .page-header .actions { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
 .menu-toggle { display: none; }
+.sidebar-footer { margin-top: auto; padding: 12px 16px 16px; border-top: 1px solid rgba(255, 255, 255, 0.08); display: none; }
+@media (max-width: 1023px) { .sidebar-footer { display: block; } }
+@media (max-width: 767px) {
+  .topbar { padding: 8px 10px; gap: 6px; }
+  .topbar .topbar-extra { display: none; }
+  .topbar .search { max-width: none; }
+  .topbar .spacer { display: none; }
+  .page-header .actions { margin-left: 0; }
+}
 
 @media (max-width: 1023px) {
   .sidebar { position: fixed; left: 0; top: 0; z-index: 50; transform: translateX(-100%); transition: transform 0.2s; }
