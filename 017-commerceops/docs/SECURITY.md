@@ -39,7 +39,7 @@
 | CSV パーサ攻撃 | 正規 CSV パーサ（csv-parse 7.x、`split(",")` 不使用）、サイズ/行数/列数/セル長の上限、配列で受け取る（`columns` 未使用 = ヘッダー名でのプロトタイプ汚染経路なし）、文字コード明示 | phase1-mapping、phase2 |
 | Import Profile による任意コード実行 / ReDoS | 宣言的変換のみ（正規表現・式・eval 不可）、zod 厳格検証 | phase1-mapping |
 | Zip Slip / パストラバーサル | ZIP を受け付けない（バックアップは gzip NDJSON、先頭バイトで判定）。添付の保存キーはサーバー生成 `{uuid}/{uuid}` のみで、解決パスが基底配下か検証。アップロードの一時ファイル名もサーバー生成 | backup tests（ZIP）、storage |
-| アップロード悪用 | multipart のサイズ上限（既定 20MB、バックアップは既定 1GB を一時ファイルへストリーミング）・1 ファイル、超過は 413 で一時ファイル削除。写真は MIME とマジックバイト検証 | HTTP hardening（413）、backup upload テスト |
+| アップロード悪用 | multipart のサイズ上限（既定 20MB、バックアップはファイル 256MB・展開後 1024MB（設定可）で一時ファイルへストリーミング）・1 ファイル、超過は 413 で一時ファイル削除。写真は MIME とマジックバイト検証 | HTTP hardening（413）、backup upload テスト |
 | 個人情報の過剰露出 | ロール別の表示範囲（Picker は注文情報なし、Packer は送付先の氏名住所のみ、Support は受付に必要な範囲）、CSV は `export.csv` + 閲覧権限 + 個人情報レベル選択（ADR-021） | Phase4/5/8、personal data minimization |
 | ログからの漏えい | pino redact（Cookie/CSRF/Authorization）、リクエストボディ非記録、URL のクエリ文字列非記録、DB エラーは種類・SQLSTATE・制約名のみ（`detail`/`where` の行データを出さない） | error serializer テスト |
 | 監査ログからの漏えい | 監査ログには番号・件数・理由の有無のみを記録し、氏名・住所・電話・メールを入れない | audit log テスト（全行を個人情報文字列で走査） |
@@ -49,6 +49,9 @@
 | 秘密情報の混入 | 環境変数のみ（`.env`・`data/`・`backups/`・`*.ndjson.gz` は gitignore）、`.env.example` はダミー値 | |
 | クリックジャッキング | CSP `frame-ancestors 'none'` | HTTP hardening |
 | 依存ライブラリ | ライセンス確認（GPL/AGPL なし）、`npm audit` をリリース前に実施（§6） | RELEASE_CHECKLIST |
+
+| DB ロールの設定ミスで RLS が効かない | 本番設定では、`DATABASE_URL` のユーザーが SUPERUSER / BYPASSRLS なら起動を拒否（Phase 11）。docker compose はアプリ専用ユーザーを自動作成 | TEST_REPORT §8.3（Docker で確認） |
+| 初期パスワード・共有パスワードの放置 | 画面から自分のパスワードを変更（現在のパスワード必須、他の端末のセッションを終了）（Phase 10） | E2E `account` |
 
 ## 3. HTTP セキュリティヘッダ
 - `Content-Security-Policy`: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob:; connect-src 'self'; font-src 'self' data:; worker-src 'self' blob:; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'（本番は upgrade-insecure-requests）
@@ -84,3 +87,12 @@
 | 別組織の ID に空の結果（200）を返すエンドポイントが 5 つ（引当計画・ロケーション一覧・取込明細・Wave プレビュー・引当解除） | データ漏えいはなし（RLS）。方針「存在を明かさない = 404」と不一致 | 存在確認を追加して 404 |
 | DB エラーのログに行の値が出る可能性（PostgreSQL の `detail`） | ログへの個人情報出力 | エラーのシリアライザで除外 |
 | バックアップのアップロードが 20MB 上限・メモリ読込 | 大きな組織は画面から復元できない | 一時ファイルへストリーミング、上限を別設定（既定 1GB）に |
+
+## 8. Phase 10〜11 の点検で見つけて直したもの（セキュリティ・データ保全に関係するもの）
+| 内容 | 影響 | 修正 |
+|---|---|---|
+| 自分のパスワードを変える画面がなかった（API のみ） | create-owner の初期パスワードやサンプル用アカウントのパスワードを変えられない | 画面右上 / メニュー / スマホのホームに「パスワード変更」 |
+| DB ユーザーの権限を起動時に確認していなかった | SUPERUSER の接続文字列で動かすと組織の分離（RLS）が効かない | 本番設定では起動を拒否（index.ts）、DEPLOY.md §2 |
+| 写真ファイルが保存先に無くても CLI バックアップが成功扱い | 写真の欠落に気付かない | backup-cli が警告・終了コード 1、検証結果に欠落数 |
+| 販売可能な棚と返品保留・破損の棚の間の移動に理由が不要 | 破損品を売れる在庫に戻しても理由が残らない | 理由必須・監査ログに移動元/先の種類（ADR-036） |
+| Pick の同時再送で後着が誤 scan として記録、デッドロックで 409 | 記録の誤り・作業の中断（在庫の二重計上はなし） | ADR-032 |

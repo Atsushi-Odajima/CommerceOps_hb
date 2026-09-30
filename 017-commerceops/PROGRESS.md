@@ -15,7 +15,7 @@
 | 8 | 例外, 作業割当, KPI, 検索, CSV export | ✅ | テスト 7（例外のライフサイクル/RBAC/倉庫スコープ、住所不備の自動解決、ホームの権限別件数、KPI の分子/分母・交換除外・期間検証、検索の権限/スコープ/テナント、作業割当、CSV 出力の個人情報レベル）。画面: ホーム・例外キュー/詳細・作業割当・KPI・横断検索・CSV 出力ダイアログ |
 | 9 | 監査, 個人情報, Backup/Restore, Security | ✅ | テスト 17（R22 全ルート横断・本文/絞り込み/検索/CSV、倉庫スコープ横断、R26 同一環境復元、E2E-9 空の環境へ CLI 復元、改ざん/途中切れ/ZIP/版違い/整合性違反の拒否とロールバック、復元時のユーザー対応付け、監査ログ、個人情報、アカウント乗っ取り対策、HTTP ヘッダ/CSRF/セッション/413、ログのエラー整形、保持期限、ログイン rate limit）。画面: 設定→バックアップ・復元、監査ログ。サーバー全体 130/130 |
 | 10 | 負荷/競合, 端末 E2E, アクセシビリティ | ✅ | サーバー 149/149、E2E 17/17（Chromium の端末エミュレーション）、競合検証 17/17、1 日 50/500/5,000 注文の業務フロー、51.25 万注文での規模検証。見つけた不具合 20 件以上を修正（TEST_REPORT.md §6）。実機・WebKit は未実施 |
-| 11 | 購入者資料, デプロイ, 運用費, 販売前チェック | ⬜ | |
+| 11 | 購入者資料, デプロイ, 運用費, 販売前チェック | ✅ | buyer-docs 15 資料 + CSV テンプレート 4 種 + THIRD_PARTY_NOTICES、Sample Commerce（seed-sample、実 API で全シナリオ・整合性 OK）、Dockerfile / compose / render.yaml（Docker で build・起動・初期設定・CLI・ブラウザ確認、Render は未検証）、DEPLOY.md、RELEASE_CHECKLIST.md、OPERATING_COSTS.md の実測値 |
 
 ## Phase0 詳細（2026-09-30）
 - 技術選定: DECISIONS.md ADR-002（Vite 7 / Vitest 4 / TS 6 / RR 7 の成熟ラインを採用、Playwright はプリインストール Chromium に合わせ 1.56.1）
@@ -155,3 +155,15 @@
   件数の打ち切り（ADR-027）、欠品注文の引当候補（ADR-028）、在庫移動一覧の索引（0003）、Service Worker 登録（ADR-031）、アクセシビリティ、
   購入者資料の作成時に見つけた画面・API の不足（パスワード変更、Wave 一括割当、出荷作業の作成、検品の入力欄、後から届いた返品、移動の理由、写真欠落の警告 等）
 - ドキュメント: TEST_REPORT.md（新規）、DEPLOY.md（新規、Phase 11 のデプロイ構成を前倒し）、OPERATIONS.md §8.1、OPERATING_COSTS.md の実測値、ADR-026〜036
+
+## Phase11 詳細（2026-09-30）
+- 購入者資料（buyer-docs/、日本語 .txt）: はじめに・初期設定ガイド・注文CSV取込・在庫引当・Waveとピッキング・スマホPick・Packing Station・出荷と分割発送・
+  返品交換・ユーザーと権限・例外対応・バックアップ復元・スマホ・iPadで使う・注意事項・サンプル業務説明、CSVテンプレート/（注文・商品・在庫・追跡番号 + 説明）、
+  THIRD_PARTY_NOTICES.txt（本番依存 112 パッケージ、scripts/third-party-notices.mjs で生成）。画面名・ボタン名はソースと照合
+- 資料作成時の点検で見つけた画面・API の不足を修正（パスワード変更、Wave 一括割当、出荷作業の作成、検品の入力欄、後から届いた返品、移動の理由、
+  写真欠落の警告、復元の上限、作業票の箱数、既定の配送会社、在庫 CSV の文字コード、出力上限の表示、全角入力）→ Phase 10 のコミットに含む
+- サンプル: server/src/scripts/seed-sample.ts（Sample Commerce、is_sample、倉庫 2・チャネル 3・30 SKU、重複取込・最後の 1 個・一部引当・欠品・2 倉庫分割・
+  Short と再割当・誤 scan・分割発送・保留・キャンセル・住所不備・返品 Restock/Damaged・交換・取込競合）。役割別のサンプル用アカウント（パスワードは 1 回だけ表示）
+- デプロイ: Dockerfile（マルチステージ、node ユーザー、本番依存のみ、424MB）、docker-compose.yml + deploy/postgres-init.sh（アプリ専用 DB ユーザー）、
+  render.yaml（例・未検証）、docs/DEPLOY.md。本番設定で RLS をバイパスできる DB ユーザーなら起動を拒否
+- docs/RELEASE_CHECKLIST.md（人が行う販売前の確認）、NEXT_STEPS.txt、SECURITY.md §8、DEVELOPMENT.md のコマンド

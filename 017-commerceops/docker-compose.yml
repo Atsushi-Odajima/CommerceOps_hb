@@ -1,0 +1,48 @@
+# CommerceOps を 1 台のサーバーで動かす構成例（PostgreSQL 16 + アプリ）。
+#   cp deploy/compose.env.example .env   # パスワード・URL を設定
+#   docker compose up -d --build
+#   docker compose exec app node dist/scripts/create-owner.js --org "店名" --email owner@example.com --name "氏名"
+# インターネットに公開する場合は、前段に HTTPS の終端（リバースプロキシ等）を置くこと（docs/DEPLOY.md）。
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?.env に POSTGRES_PASSWORD を設定してください}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?.env に APP_DB_PASSWORD を設定してください}
+      TZ: Asia/Tokyo
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./deploy/postgres-init.sh:/docker-entrypoint-initdb.d/10-commerceops.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d commerceops"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    build: .
+    image: commerceops:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://commerceops:${APP_DB_PASSWORD}@db:5432/commerceops
+      APP_BASE_URL: ${APP_BASE_URL:-http://localhost:3000}
+      # HTTPS の背後で動かす場合は true（http://localhost で試すだけなら false）
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      TRUST_PROXY: ${TRUST_PROXY:-true}
+      RUN_WORKER: "true"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      ALLOW_SIGNUP: "false"
+      TZ: Asia/Tokyo
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    volumes:
+      - app-data:/data
+
+volumes:
+  db-data:
+  app-data:

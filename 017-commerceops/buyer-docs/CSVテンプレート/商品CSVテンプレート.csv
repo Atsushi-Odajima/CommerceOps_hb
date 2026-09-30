@@ -1,0 +1,6 @@
+﻿sku,name,variant,group_code,barcodes,weight_g,image_url,active
+SAMPLE-TSHIRT-M,サンプルTシャツ,M,SAMPLE-TSHIRT,2000001000014,180,,1
+SAMPLE-TSHIRT-L,サンプルTシャツ,L,SAMPLE-TSHIRT,2000001000021|TAG-TSHIRT-L,200,,1
+SAMPLE-MUG-WHT,サンプルマグカップ,ホワイト,,2000001000038,350,https://example.invalid/images/sample-mug.jpg,1
+SAMPLE-SOCKS-BLK,サンプルソックス,ブラック,,2000001000045,60,,1
+SAMPLE-CAP-OLD,サンプルキャップ（販売終了）,,,2000001000052,90,,0

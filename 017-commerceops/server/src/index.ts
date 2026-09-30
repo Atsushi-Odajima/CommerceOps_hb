@@ -14,6 +14,15 @@ async function main() {
     ssl: config.DATABASE_SSL,
     applicationName: 'commerceops-numbering',
   });
+  // SUPERUSER / BYPASSRLS のユーザーでは行レベルセキュリティ（組織の分離の多層防御）が効かない。本番では起動しない
+  const role = (await pool.query('SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user')).rows[0];
+  if (role?.rolsuper || role?.rolbypassrls) {
+    const msg =
+      'DATABASE_URL のユーザーが SUPERUSER または BYPASSRLS を持っています。組織の分離（RLS）が効かないため、' +
+      'NOSUPERUSER NOBYPASSRLS のアプリ専用ユーザーを使ってください（docs/DEPLOY.md）';
+    if (config.NODE_ENV === 'production' && process.env.ALLOW_RLS_BYPASS_ROLE !== 'true') throw new Error(msg);
+    console.warn(`[warn] ${msg}`);
+  }
   if (process.env.SKIP_MIGRATIONS !== 'true') {
     await migrate(pool, (m) => console.log(`[migrate] ${m}`));
   }

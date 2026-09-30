@@ -59,13 +59,23 @@ npm run dev -w web             # http://localhost:5173 （/api は 3000 へプ�
 | `npm run create-owner -w server -- --org "店名" --email owner@example.com --name "氏名"` | 初期 Owner 作成（パスワードは対話入力または自動生成して表示） |
 | `npm run integrity -w server -- --org <orgId>` | 在庫・数量の不変条件チェック |
 | `npm run backup -w server -- --org <orgId> --out file.ndjson.gz` | 組織バックアップ |
-| `npm run restore -w server -- --file file.ndjson.gz` | 新しい組織として復元 |
+| `npm run restore -w server -- --file file.ndjson.gz --actor-email <メール>` | 新しい組織として復元 |
+| `npm run seed:sample -w server -- [--owner-email <メール>]` | サンプル組織 Sample Commerce（is_sample、本番データと分離）を作成 |
+| `npm run password-reset -w server -- --email <メール>` | 運用者による再設定リンクの発行 |
+| `npx tsx load/contention.ts` / `load/dayflow.ts` / `load/scale.ts`（server/） | 同時実行・1 日の業務量・大量データの検証（TEST_REPORT.md §4・§7・§8。負荷用 DB を使う） |
+| `node scripts/third-party-notices.mjs` | buyer-docs/THIRD_PARTY_NOTICES.txt を再生成（本番依存のライセンス表記） |
+| `docker build -t commerceops .` / `docker compose up -d` | 本番イメージ・1 台構成（docs/DEPLOY.md） |
+| `node e2e/scripts/docker-smoke.mjs <URL> <メール> <パスワード>` | 起動したアプリに実ブラウザでログインして主要画面を確認 |
+
+ビルド済みの環境（Docker・本番）では CLI を `node dist/scripts/<名前>-cli.js`（create-owner.js / seed-sample.js）で実行する（`server/` で）。
 
 ## コーディング規約
 - SQL は必ず placeholder（`$1`）。文字列連結で値を埋め込まない。
 - 業務データへのアクセスは `withTenant` / `orgTx(req, ...)` 経由のみ（RLS コンテキスト必須）。
 - 権限チェックはルートの `preHandler: perm('...')` + 倉庫スコープは `assertWarehouse`。
-- 状態を変える処理は「行ロック（FOR UPDATE）→ 再検証 → 条件付き更新 → 監査ログ」の順。
+- 状態を変える処理は「行ロック（FOR UPDATE）→ 再検証 → 条件付き更新 → 監査ログ」の順。状態列だけを更新する親行（注文・Fulfillment・Wave）は
+  `FOR NO KEY UPDATE`（子行の INSERT の外部キー検査と衝突させない）、複数行は ID 順にロックする（ADR-032）。
+- 冪等キーの確認は、対象の行ロックを取った後にもう一度行う（同時再送の後着を正しく「重複」として扱う）。
 - 再送されうる操作（scan、完了、出荷確定、検品）はクライアント生成の UUID を受け取り冪等にする。
 - 個人情報をログ・監査メタデータ・例外 detail に入れない。
 - UI 文言は日本語。API エラーは `{ error: { code, message, details } }`。

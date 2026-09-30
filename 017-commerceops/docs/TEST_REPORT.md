@@ -218,6 +218,20 @@ v3 の統計情報の更新（ANALYZE）に要した時間は 5.4 / 8.0 / 10.7 �
 
 1 日 50 / 500 / 5,000 注文を 1 年保持すると DB は約 0.4 / 3.9 / 39GB（OPERATING_COSTS.md）。
 
+## 8.3 デプロイ構成の検証（Docker、Phase 11）
+| 確認 | 結果 |
+|---|---|
+| `docker build`（Dockerfile のマルチステージ） | 成功、34 秒（依存取得を含む）。イメージ 424MB、実行ユーザー `node`、本番依存のみ（開発用パッケージなし）、server/dist・CLI・web/dist・マイグレーション 0001〜0003 を含む |
+| `docker compose up`（postgres:16 + アプリ） | 初回起動で deploy/postgres-init.sh がアプリ用ユーザー（SUPERUSER・BYPASSRLS なし）と DB を作成 → アプリが本番設定で起動 → マイグレーション適用 → ヘルスチェック healthy |
+| 初期設定の手順 | `docker compose exec app node dist/scripts/create-owner.js ...` → ログイン（HTTP API）、`seed-sample.js --owner-email ...`（整合性チェック OK）、`/readyz` 200 |
+| 安全装置 | スーパーユーザーの `DATABASE_URL` で起動すると、本番設定のアプリは起動を拒否 |
+| CLI | `backup-cli.js --out /data/... --verify`（書込先は永続ボリューム `/data`）、`integrity-cli.js --all` |
+| 画面 | 実ブラウザ（Chromium）で PC・iPhone 幅の主要 7 画面、ページエラーなし、Service Worker 登録（e2e/scripts/docker-smoke.mjs） |
+| 再起動 | `restart` 後もデータ保持・マイグレーションの再適用なし・ログイン可 |
+
+- 検証環境の通信は TLS を検査するプロキシ経由のため、ビルド時だけそのプロキシの CA を BuildKit の secret で `npm ci` に渡した（Dockerfile の `npm ci` 2 行のみ異なる検証用コピー。イメージには残らない）。通常の環境では Dockerfile をそのまま使う。
+- Render（render.yaml）上では未検証。
+
 ## 9. RBAC・テナント分離
 - R22: id を持つ全ルートを別組織の id で呼び、2xx・5xx・データ漏れがないこと（phase9-security）。本文・絞り込み・検索・CSV に他組織の id を入れても使われない。
 - 倉庫スコープ: 大阪限定の管理者が東京の Wave・タスク・梱包・Fulfillment・荷物・返品・例外・ロケーションを見られない・操作できない。

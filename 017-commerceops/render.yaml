@@ -1,0 +1,41 @@
+# Render Blueprint の例（未デプロイ・Render 上では未検証。料金・プラン名は契約前に Render の公式ページで確認すること）。
+# リポジトリのルートではなく 017-commerceops/ に置いているため、Blueprint 作成時にこのファイルのパスを指定する。
+# 手順と注意（DB ユーザーの権限確認・APP_BASE_URL・バックアップ）は docs/DEPLOY.md。
+services:
+  - type: web
+    name: commerceops
+    runtime: docker
+    rootDir: 017-commerceops
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    region: singapore
+    plan: starter
+    healthCheckPath: /readyz
+    # 返品写真・バックアップ一時ファイル（永続ディスクを付けたサービスは 1 インスタンスで動く）
+    disk:
+      name: commerceops-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: commerceops-db
+          property: connectionString
+      - key: APP_BASE_URL
+        sync: false # 例: https://commerceops.onrender.com（独自ドメインを使う場合はそのURL）
+      - key: TRUST_PROXY
+        value: "true"
+      - key: RUN_WORKER
+        value: "true"
+      - key: ALLOW_SIGNUP
+        value: "false"
+      - key: TZ
+        value: Asia/Tokyo
+
+databases:
+  - name: commerceops-db
+    region: singapore
+    plan: basic-1gb
+    postgresMajorVersion: "16"
+    databaseName: commerceops
+    user: commerceops
