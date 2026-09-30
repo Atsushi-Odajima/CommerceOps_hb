@@ -4,7 +4,7 @@ import { loadConfig } from '../../src/config.js';
 import { createPool } from '../../src/db/pool.js';
 import { withTenant, type Tx, SYSTEM_ACTOR, type Actor } from '../../src/db/tx.js';
 import type { AppDeps } from '../../src/http.js';
-import { MemoryStorage } from '../../src/modules/attachments/storage.js';
+import { MemoryStorage, type Storage } from '../../src/modules/attachments/storage.js';
 import { TEST_DATABASE_URL } from '../setup/global.js';
 
 export interface TestEnv {
@@ -14,18 +14,22 @@ export interface TestEnv {
   close(): Promise<void>;
 }
 
-export async function createTestEnv(overrides: Record<string, string> = {}): Promise<TestEnv> {
+export async function createTestEnv(
+  overrides: Record<string, string> = {},
+  databaseUrl = TEST_DATABASE_URL,
+  storage: Storage = new MemoryStorage(),
+): Promise<TestEnv> {
   const config = loadConfig({
     NODE_ENV: 'test',
-    DATABASE_URL: TEST_DATABASE_URL,
+    DATABASE_URL: databaseUrl,
     LOG_LEVEL: 'silent',
     RUN_WORKER: 'false',
     APP_BASE_URL: 'http://localhost:5173',
     ...overrides,
   } as NodeJS.ProcessEnv);
-  const pool = createPool({ connectionString: TEST_DATABASE_URL, max: 24 });
-  const numberingPool = createPool({ connectionString: TEST_DATABASE_URL, max: 3 });
-  const deps: AppDeps = { config, pool, numberingPool, storage: new MemoryStorage() };
+  const pool = createPool({ connectionString: databaseUrl, max: 24 });
+  const numberingPool = createPool({ connectionString: databaseUrl, max: 3 });
+  const deps: AppDeps = { config, pool, numberingPool, storage };
   const app = await buildApp(deps, { logger: false });
   await app.ready();
   return {

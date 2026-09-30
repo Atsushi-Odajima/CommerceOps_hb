@@ -91,6 +91,7 @@ export async function importRoutes(app: FastifyInstance) {
     );
     const pii = auth.permissions.has('orders.read_pii');
     return orgTx(req, async (tx) => {
+      if (!(await tx.maybeOne('SELECT id FROM import_batches WHERE organization_id = $1 AND id = $2', [tx.orgId, id]))) throw notFound('取込');
       const params: unknown[] = [tx.orgId, id];
       let where = 'organization_id = $1 AND batch_id = $2';
       if (q.classification) {

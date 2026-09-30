@@ -150,6 +150,22 @@ export async function orgRoutes(app: FastifyInstance) {
     await withSystem(pool, async (c) => {
       const m = await c.query('SELECT 1 FROM memberships WHERE organization_id = $1 AND user_id = $2', [auth.org.id, userId]);
       if (!m.rowCount) throw notFound('メンバー');
+      // パスワードを再設定できるのは、対象ユーザーが所属する全組織で自分が Owner の場合だけ
+      // （他の組織にも所属するユーザーのパスワードを変えると、その組織へのアクセスを奪えてしまうため。
+      //   無効化中の所属も含める: 後で有効に戻されると同じことになる）
+      const foreign = await c.query(
+        `SELECT 1 FROM memberships m WHERE m.user_id = $1 AND NOT EXISTS (
+           SELECT 1 FROM memberships o WHERE o.organization_id = m.organization_id AND o.user_id = $2 AND o.role = 'owner' AND o.status = 'active')
+         LIMIT 1`,
+        [userId, auth.userId],
+      );
+      if (foreign.rowCount) {
+        throw new AppError(
+          409,
+          'USER_IN_OTHER_ORGANIZATION',
+          'このユーザーは他の組織にも所属しているため、パスワード再設定リンクを発行できません。本人に現在のパスワードでログインしてもらうか、サービス運用者に依頼してください',
+        );
+      }
       await c.query(`UPDATE password_resets SET used_at = now() WHERE user_id = $1 AND used_at IS NULL`, [userId]);
       await c.query(`INSERT INTO password_resets (token_hash, user_id, expires_at) VALUES ($1, $2, now() + interval '24 hours')`, [
         sha256Buf(token),

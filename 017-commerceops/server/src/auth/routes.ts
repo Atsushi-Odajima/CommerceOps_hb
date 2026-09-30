@@ -221,13 +221,31 @@ export async function authRoutes(app: FastifyInstance) {
     if (!inv) throw new AppError(404, 'INVITATION_INVALID', '招待リンクが無効か期限切れです');
     const existing = await findUserByEmail(pool, inv.email);
     let userId: string;
+    if (existing && existing.status === 'disabled') {
+      throw new AppError(403, 'ACCOUNT_DISABLED', 'このアカウントは無効化されています');
+    }
     if (existing && existing.status === 'active') {
-      // 既存ユーザーは自分のパスワードで本人確認
+      // 既存ユーザーは自分のパスワードで本人確認（パスワード未設定のアカウントは常に不一致）
       if (!(await verifyPassword(body.password, existing.password_hash))) {
         throw badRequest('INVALID_PASSWORD', '既存アカウントのパスワードが正しくありません');
       }
       userId = existing.id;
     } else {
+      if (existing) {
+        // パスワード未設定の既存アカウント（復元で作成された等）が他の組織に所属している場合、
+        // 招待の承諾でパスワードを設定させない（招待リンクは発行した Owner も開けるため、他組織のアカウント乗っ取りになる）
+        const other = await pool.query(
+          `SELECT 1 FROM memberships WHERE user_id = $1 AND organization_id <> $2 LIMIT 1`,
+          [existing.id, inv.organization_id],
+        );
+        if (other.rowCount) {
+          throw new AppError(
+            409,
+            'ACCOUNT_NEEDS_RESET',
+            'このメールアドレスのアカウントは他の組織にも所属しています。所属先から発行されたパスワード再設定リンクでパスワードを設定してから、招待を承諾してください',
+          );
+        }
+      }
       const weak = validatePasswordStrength(body.password);
       if (weak) throw badRequest('WEAK_PASSWORD', weak);
       userId = await withSystem(pool, async (client) => {

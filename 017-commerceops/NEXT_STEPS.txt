@@ -1,5 +1,24 @@
-CommerceOps 次の作業（常に最新化）
+CommerceOps 次の作業（常に最新化） — 2026-09-30 Phase 9 完了時点
 
-1. Phase1: 組織設定・倉庫/ロケーション・商品/バーコード・ユーザー招待/ロール/倉庫範囲・販売チャネル・Import Profile の API + 画面 + RBAC テスト
-2. Phase2: CSV 取込（文字コード→Profile→プレビュー→検証→重複→確定）
-3. 以降 PLAN.md の Phase 表どおり
+完了: Phase 0〜9（PROGRESS.md）。サーバーテスト 130/130、各 Phase の UI スモーク（e2e/scripts/smoke-phase*.mjs）でページエラーなし。
+
+次: Phase 10 — 負荷/競合、端末 E2E、アクセシビリティ
+  1. 段階的な大量データ生成（Order 500 万 / OrderItem 1500 万 / Allocation 1500 万 / PickEvent 3000 万 / Shipment 500 万 / Return 50 万 を想定した
+     index / 実行計画の検証。環境の容量に合わせて段階的に生成し、実測できた規模だけを記録。販売保証値にしない）
+  2. 1 日 50 / 500 / 5,000 注文相当の取込・引当・Wave・検索の所要時間を測定
+  3. 同時引当 / Pick / Pack / 出荷確定 / Restock の競合を負荷ツールで測定（二重処理ゼロ・整合性チェック OK を確認）
+  4. Playwright E2E 1〜9（PC / iPhone / Android / iPad のビューポート・タッチ・モバイル UA。WebKit 実行環境がない場合はその旨を記録）
+  5. アクセシビリティ（axe-core、キーボード操作、フォーカス、コントラスト）
+  6. バーコード: ZXing で JAN/EAN-13・EAN-8・Code128・QR のデコードを実測（対応済みと書くのは実測できたものだけ）
+  7. 帳票の PDF 化テスト（page.pdf()）
+  8. docs/TEST_REPORT.md 作成
+
+その後: Phase 11 — 購入者向け資料（buyer-docs/*.txt、CSV テンプレート、サンプル業務説明、THIRD_PARTY_NOTICES.txt）、
+  サンプルデータ（Sample Commerce、本番と分離）、Dockerfile / compose / PaaS 設定（公開はしない）、OPERATING_COSTS.md の最終化（1 注文あたりの実測容量）、
+  RELEASE_CHECKLIST.md、最終報告
+
+人間の確認が必要なもの（自動では行わない）
+  - 有料契約・本番公開・実 EC アカウント接続・実顧客データの利用
+  - 実機（iPhone Safari / Android Chrome / iPad）でのカメラ読取とホーム画面追加の確認
+  - ホスティング/DB の料金を公式ページで最終確認（OPERATING_COSTS.md の [A]/[B] 区分）
+  - 開発依存の npm audit（autocannon 経由の uuid）の再確認

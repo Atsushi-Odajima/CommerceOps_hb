@@ -5,6 +5,8 @@ coverage/
 .env.*
 !.env.example
 data/
+backups/
+*.ndjson.gz
 *.log
 e2e/test-results/
 e2e/playwright-report/

@@ -179,16 +179,17 @@ export async function warehouseRoutes(app: FastifyInstance) {
       }),
       req.query,
     );
-    const rows = await orgTx(req, (tx) =>
-      tx.many(
+    const rows = await orgTx(req, async (tx) => {
+      if (!(await tx.maybeOne('SELECT id FROM warehouses WHERE organization_id = $1 AND id = $2', [tx.orgId, id]))) throw notFound('倉庫');
+      return tx.many(
         `SELECT * FROM locations
           WHERE organization_id = $1 AND warehouse_id = $2 AND ($3::text IS NULL OR kind = $3)
             AND ($4::text IS NULL OR code ILIKE '%' || $4 || '%' OR barcode = $4)
             AND ($5::boolean OR active)
           ORDER BY pick_sequence, code LIMIT 2000`,
         [tx.orgId, id, q.kind ?? null, q.q ?? null, q.includeInactive],
-      ),
-    );
+      );
+    });
     return { items: rows.map(mapLocation) };
   });
 

@@ -14,6 +14,25 @@ import { authRoutes } from './auth/routes.js';
 import { registerModuleRoutes } from './routes.js';
 import { APP_VERSION } from './version.js';
 
+/**
+ * エラーのログ出力。PostgreSQL のエラーは detail / where に行の値（氏名・住所等）が入るため出さない。
+ * 出すのは種類・メッセージ・SQLSTATE・制約名・スタックのみ。
+ */
+export function serializeError(e: unknown): { type: string; message: string; stack: string; [key: string]: unknown } {
+  if (!(e instanceof Error)) return { type: typeof e, message: String(e).slice(0, 500), stack: '' };
+  const x = e as Error & { code?: unknown; constraint?: unknown; table?: unknown; routine?: unknown; statusCode?: unknown };
+  return {
+    type: x.name,
+    message: String(x.message).slice(0, 500),
+    code: x.code,
+    constraint: x.constraint,
+    table: x.table,
+    routine: x.routine,
+    statusCode: x.statusCode,
+    stack: x.stack ?? '',
+  };
+}
+
 export interface BuildAppOptions {
   logger?: boolean;
 }
@@ -39,6 +58,7 @@ export async function buildApp(deps: AppDeps, opts: BuildAppOptions = {}): Promi
             serializers: {
               // クエリ文字列（検索語 = 氏名等を含みうる）はログに出さない
               req: (req) => ({ id: req.id, method: req.method, url: String(req.url).split('?')[0] }),
+              err: serializeError,
             },
           },
     trustProxy: config.TRUST_PROXY,

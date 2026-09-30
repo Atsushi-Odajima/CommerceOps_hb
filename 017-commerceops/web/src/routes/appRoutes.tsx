@@ -12,6 +12,8 @@ const UsersPage = lazy(() => import('../pages/settings/UsersPage'));
 const ChannelsPage = lazy(() => import('../pages/settings/ChannelsPage'));
 const ImportProfilesPage = lazy(() => import('../pages/settings/ImportProfilesPage'));
 const ImportProfileEditor = lazy(() => import('../pages/settings/ImportProfilesPage').then((m) => ({ default: m.ImportProfileEditor })));
+const BackupPage = lazy(() => import('../pages/settings/BackupPage'));
+const AuditPage = lazy(() => import('../pages/AuditPage'));
 const InventoryLayout = lazy(() => import('../pages/inventory/InventoryLayout'));
 const ProductsPage = lazy(() => import('../pages/inventory/ProductsPage'));
 const LocationLabelsPrint = lazy(() => import('../print/LocationLabelsPrint'));
@@ -80,6 +82,7 @@ export const appRoutes: RouteObject[] = [
   { path: 'assignments', element: P(['waves.manage', 'fulfillment.manage', 'exceptions.manage'], <AssignmentsPage />) },
   { path: 'kpi', element: P('kpi.read', <KpiPage />) },
   { path: 'search', element: S(<SearchPage />) },
+  { path: 'audit', element: P('audit.read', <AuditPage />) },
   {
     path: 'settings',
     element: S(<SettingsLayout />),
@@ -91,6 +94,7 @@ export const appRoutes: RouteObject[] = [
       { path: 'channels', element: P('channels.manage', <ChannelsPage />) },
       { path: 'import-profiles', element: P('channels.manage', <ImportProfilesPage />) },
       { path: 'import-profiles/:id', element: P('channels.manage', <ImportProfileEditor />) },
+      { path: 'backup', element: P('backup.manage', <BackupPage />) },
     ],
   },
   {

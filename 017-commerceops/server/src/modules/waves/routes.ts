@@ -97,7 +97,10 @@ export async function waveRoutes(app: FastifyInstance) {
     const auth = requireOrg(req);
     const body = parse(PreviewBody, req.body);
     assertWarehouse(req, body.warehouseId);
-    return orgTx(req, (tx) => previewWave(tx, { ...body, limit: body.limit ?? auth.org.settings.wave.maxFulfillments }));
+    return orgTx(req, async (tx) => {
+      if (!(await tx.maybeOne('SELECT id FROM warehouses WHERE organization_id = $1 AND id = $2', [tx.orgId, body.warehouseId]))) throw notFound('倉庫');
+      return previewWave(tx, { ...body, limit: body.limit ?? auth.org.settings.wave.maxFulfillments });
+    });
   });
 
   app.post('/api/waves', { preHandler: perm('waves.manage') }, async (req) => {

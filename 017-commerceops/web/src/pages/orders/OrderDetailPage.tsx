@@ -51,6 +51,12 @@ export default function OrderDetailPage() {
                 / <Link to={`/imports/${o.importBatchId}`}>取込バッチ</Link>
               </>
             )}
+            {can('audit.read') && (
+              <>
+                {' '}
+                / <Link to={`/audit?entityType=order&entityId=${o.id}`}>操作履歴（監査ログ）</Link>
+              </>
+            )}
           </>
         }
         actions={

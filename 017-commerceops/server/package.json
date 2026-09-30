@@ -17,7 +17,8 @@
     "create-owner": "tsx src/scripts/create-owner.ts",
     "backup": "tsx src/scripts/backup-cli.ts",
     "restore": "tsx src/scripts/restore-cli.ts",
-    "integrity": "tsx src/scripts/integrity-cli.ts"
+    "integrity": "tsx src/scripts/integrity-cli.ts",
+    "password-reset": "tsx src/scripts/password-reset-cli.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
@@ -25,7 +26,7 @@
     "@fastify/multipart": "^10.1.2",
     "@fastify/rate-limit": "^11.2.0",
     "@fastify/static": "^10.1.5",
-    "csv-parse": "^6.2.1",
+    "csv-parse": "^7.0.3",
     "fastify": "^5.12.5",
     "iconv-lite": "^0.7.3",
     "pg": "^8.23.0",

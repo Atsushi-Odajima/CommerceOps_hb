@@ -417,7 +417,8 @@ export async function releaseAllocations(tx: Tx, deps: Pick<AppDeps, 'numberingP
  * allocationIds 省略時はこの注文の Wave 前の引当すべて。
  */
 export async function deallocate(tx: Tx, orderId: string, opts: { allocationIds?: string[]; reason: string; qtyByItem?: Map<string, number> }): Promise<number> {
-  await tx.exec(`SELECT id FROM orders WHERE organization_id = $1 AND id = $2 FOR UPDATE`, [tx.orgId, orderId]);
+  const order = await tx.maybeOne(`SELECT id FROM orders WHERE organization_id = $1 AND id = $2 FOR UPDATE`, [tx.orgId, orderId]);
+  if (!order) throw notFound('注文');
   const allocs = await tx.many(
     `SELECT a.*, f.status AS ff_status FROM allocations a
        LEFT JOIN fulfillments f ON f.organization_id = a.organization_id AND f.id = a.fulfillment_id

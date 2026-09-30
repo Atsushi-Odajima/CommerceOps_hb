@@ -318,6 +318,12 @@ export function ReturnDetailPage() {
             注文 {can('orders.read') ? <Link to={`/orders/${r.orderId}`}>{r.orderNumber}</Link> : r.orderNumber} / {r.channelName} / 理由: {RETURN_REASON[r.reasonCode]}
             {r.warehouseCode && ` / 返品倉庫 ${r.warehouseCode}`}
             {r.shipmentNumber && ` / 荷物 ${r.shipmentNumber}`}
+            {can('audit.read') && (
+              <>
+                {' '}
+                / <Link to={`/audit?entityType=return&entityId=${r.id}`}>操作履歴（監査ログ）</Link>
+              </>
+            )}
           </>
         }
         actions={

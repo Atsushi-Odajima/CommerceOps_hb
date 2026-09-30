@@ -130,9 +130,68 @@ const CHECKS: { name: string; sql: string }[] = [
   },
 ];
 
+/** 参照の一貫性（Order → Fulfillment → Shipment → Return → Exchange の関連が同じ注文を指していること） */
+const REFERENCE_CHECKS: { name: string; sql: string }[] = [
+  {
+    name: 'fulfillment_item.order_item belongs to the fulfillment order',
+    sql: `SELECT fi.id FROM fulfillment_items fi
+            JOIN fulfillments f ON f.organization_id = fi.organization_id AND f.id = fi.fulfillment_id
+            JOIN order_items oi ON oi.organization_id = fi.organization_id AND oi.id = fi.order_item_id
+           WHERE fi.organization_id = $1 AND oi.order_id <> f.order_id`,
+  },
+  {
+    name: 'allocation.order matches its order item',
+    sql: `SELECT a.id FROM allocations a JOIN order_items oi ON oi.organization_id = a.organization_id AND oi.id = a.order_item_id
+           WHERE a.organization_id = $1 AND oi.order_id <> a.order_id`,
+  },
+  {
+    name: 'shipment belongs to its fulfillment order; shipment_item order item belongs to the shipment order',
+    sql: `SELECT s.id FROM shipments s JOIN fulfillments f ON f.organization_id = s.organization_id AND f.id = s.fulfillment_id
+           WHERE s.organization_id = $1 AND f.order_id <> s.order_id
+          UNION ALL
+          SELECT si.id FROM shipment_items si
+            JOIN shipments s ON s.organization_id = si.organization_id AND s.id = si.shipment_id
+            JOIN order_items oi ON oi.organization_id = si.organization_id AND oi.id = si.order_item_id
+           WHERE si.organization_id = $1 AND oi.order_id <> s.order_id`,
+  },
+  {
+    name: 'return shipment / return items belong to the return order',
+    sql: `SELECT r.id FROM returns r JOIN shipments s ON s.organization_id = r.organization_id AND s.id = r.shipment_id
+           WHERE r.organization_id = $1 AND s.order_id <> r.order_id
+          UNION ALL
+          SELECT ri.id FROM return_items ri
+            JOIN returns r ON r.organization_id = ri.organization_id AND r.id = ri.return_id
+            JOIN order_items oi ON oi.organization_id = ri.organization_id AND oi.id = ri.order_item_id
+           WHERE ri.organization_id = $1 AND oi.order_id <> r.order_id`,
+  },
+  {
+    name: 'exchange original order = return order; replacement order points back to the original',
+    sql: `SELECT e.id FROM exchanges e JOIN returns r ON r.organization_id = e.organization_id AND r.id = e.return_id
+           WHERE e.organization_id = $1 AND e.original_order_id <> r.order_id
+          UNION ALL
+          SELECT e.id FROM exchanges e JOIN orders ro ON ro.organization_id = e.organization_id AND ro.id = e.replacement_order_id
+           WHERE e.organization_id = $1 AND (ro.source_order_id IS DISTINCT FROM e.original_order_id OR ro.exchange_id IS DISTINCT FROM e.id OR ro.order_type <> 'replacement')`,
+  },
+  {
+    name: 'soft references resolve (pack session of shipment, return attachments, exception links)',
+    sql: `SELECT s.id FROM shipments s WHERE s.organization_id = $1 AND s.pack_session_id IS NOT NULL
+             AND NOT EXISTS (SELECT 1 FROM pack_sessions ps WHERE ps.organization_id = s.organization_id AND ps.id = s.pack_session_id)
+          UNION ALL
+          SELECT a.id FROM attachments a WHERE a.organization_id = $1 AND a.entity_type = 'return'
+             AND NOT EXISTS (SELECT 1 FROM returns r WHERE r.organization_id = a.organization_id AND r.id = a.entity_id)
+          UNION ALL
+          SELECT e.id FROM exception_cases e WHERE e.organization_id = $1 AND (
+               (e.wave_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM waves w WHERE w.organization_id = e.organization_id AND w.id = e.wave_id))
+            OR (e.pick_task_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM pick_tasks t WHERE t.organization_id = e.organization_id AND t.id = e.pick_task_id))
+            OR (e.pack_session_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM pack_sessions p WHERE p.organization_id = e.organization_id AND p.id = e.pack_session_id))
+            OR (e.product_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM products p WHERE p.organization_id = e.organization_id AND p.id = e.product_id))
+            OR (e.balance_id IS NOT NULL AND NOT EXISTS (SELECT 1 FROM inventory_balances b WHERE b.organization_id = e.organization_id AND b.id = e.balance_id)))`,
+  },
+];
+
 export async function checkIntegrity(tx: Tx): Promise<IntegrityViolation[]> {
   const out: IntegrityViolation[] = [];
-  for (const c of CHECKS) {
+  for (const c of [...CHECKS, ...REFERENCE_CHECKS]) {
     const rows = await tx.many(`${c.sql} LIMIT 20`, [tx.orgId]);
     if (rows.length) out.push({ check: c.name, count: rows.length, sample: rows.slice(0, 5) });
   }

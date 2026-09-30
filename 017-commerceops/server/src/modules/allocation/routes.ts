@@ -90,7 +90,10 @@ export async function allocationRoutes(app: FastifyInstance) {
 
   app.get('/api/orders/:id/allocation-plan', { preHandler: perm('allocation.manage', 'orders.read') }, async (req) => {
     const { id } = parse(IdParams, req.params);
-    return orgTx(req, (tx) => explainAllocation(tx, id));
+    return orgTx(req, async (tx) => {
+      if (!(await tx.maybeOne('SELECT id FROM orders WHERE organization_id = $1 AND id = $2', [tx.orgId, id]))) throw notFound('注文');
+      return explainAllocation(tx, id);
+    });
   });
 
   app.post('/api/orders/:id/allocate', { preHandler: perm('allocation.manage') }, async (req) => {

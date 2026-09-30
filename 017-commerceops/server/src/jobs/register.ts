@@ -3,9 +3,11 @@ import { registerJobHandler, registerMaintenanceTask } from './handlers.js';
 import { runAllocation } from '../modules/allocation/engine.js';
 import { expirePickClaims } from '../modules/picking/service.js';
 import { purgeImportStaging } from '../modules/imports/maintenance.js';
+import { purgeOperationalData } from './retention.js';
 
 registerMaintenanceTask('imports.purgeStaging', purgeImportStaging, 60);
 registerMaintenanceTask('picking.expireClaims', expirePickClaims, 1);
+registerMaintenanceTask('retention.purgeOperationalData', purgeOperationalData, 60);
 
 registerJobHandler('allocation.run', async (deps, job) => {
   if (!job.organization_id) throw new Error('organization required');
