@@ -1,0 +1,88 @@
+// Phase 8 UI smoke: ホーム、例外キュー（一覧→詳細→担当→解決）、作業割当、KPI、横断検索、CSV 出力ダイアログ
+import { chromium } from '@playwright/test';
+const BASE = process.env.BASE ?? 'http://localhost:3000';
+const out = process.env.OUT;
+const browser = await chromium.launch();
+const errors = [];
+const ctx = await browser.newContext({ viewport: { width: 1366, height: 900 }, acceptDownloads: true });
+const page = await ctx.newPage();
+page.on('pageerror', (e) => errors.push('PAGEERROR ' + e.message));
+page.on('console', (m) => m.type() === 'error' && !/401|409|422/.test(m.text()) && errors.push('CONSOLE ' + m.text()));
+await page.goto(`${BASE}/login`);
+await page.fill('#email', 'owner@demo.test');
+await page.fill('#password', 'Demo-Owner-2026');
+await page.click('button[type=submit]');
+await page.waitForLoadState('networkidle');
+const me = await (await page.request.get(`${BASE}/api/auth/me`)).json();
+const H = { 'x-requested-with': 'CommerceOps', 'x-csrf-token': me.csrfToken };
+const api = async (method, url, data) => {
+  const r = await page.request.fetch(`${BASE}/api${url}`, { method, headers: H, data });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok()) throw new Error(`${method} ${url} ${r.status()} ${JSON.stringify(j)}`);
+  return j;
+};
+// 住所不備の注文を 1 件作って例外を発生させる
+const ch = (await api('GET', '/channels')).items.find((c) => c.active);
+const sku = (await api('GET', '/products?limit=1')).items[0].sku;
+const bad = await api('POST', '/orders', { channelId: ch.id, order: { externalOrderId: `P8-${Date.now()}`, customer: { name: '住所 確認' }, shipTo: { name: '住所 確認', address1: '東京都港区' }, lines: [{ sku, quantity: 1 }] } });
+
+await page.goto(`${BASE}/`);
+await page.waitForTimeout(1200);
+await page.screenshot({ path: `${out}/100-home.png`, fullPage: true });
+await page.goto(`${BASE}/exceptions?status=active`);
+await page.waitForTimeout(900);
+await page.screenshot({ path: `${out}/101-exceptions.png`, fullPage: true });
+await page.getByRole('link', { name: new RegExp(`住所不備: ${bad.orderNumber}`) }).click();
+await page.waitForURL(/\/exceptions\/[0-9a-f-]{36}$/);
+await page.waitForTimeout(700);
+await page.getByLabel('担当者').selectOption({ index: 1 });
+await page.waitForTimeout(500);
+await page.getByRole('button', { name: '調査中にする' }).click();
+await page.waitForTimeout(500);
+await page.getByLabel('コメント').fill('お客様にメールで住所を確認中');
+await page.getByRole('button', { name: '記録' }).click();
+await page.waitForTimeout(500);
+await page.getByRole('button', { name: '解決' }).click();
+await page.selectOption('#rs-code', 'address_corrected');
+await page.fill('#rs-note', '番地を追記');
+await page.screenshot({ path: `${out}/102-exception-resolve-modal.png` });
+await page.getByRole('button', { name: '解決にする' }).click();
+await page.waitForTimeout(800);
+await page.screenshot({ path: `${out}/103-exception-resolved.png`, fullPage: true });
+await page.goto(`${BASE}/assignments`);
+await page.waitForTimeout(900);
+await page.screenshot({ path: `${out}/104-assignments.png`, fullPage: true });
+await page.goto(`${BASE}/kpi`);
+await page.waitForTimeout(1200);
+await page.screenshot({ path: `${out}/105-kpi.png`, fullPage: true });
+// 横断検索（トップバー）
+await page.fill('input[placeholder*="注文番号"]', bad.orderNumber);
+await page.press('input[placeholder*="注文番号"]', 'Enter');
+await page.waitForURL(/\/search\?q=/);
+await page.waitForTimeout(900);
+await page.screenshot({ path: `${out}/106-search.png`, fullPage: true });
+// CSV 出力（注文）
+await page.goto(`${BASE}/orders`);
+await page.waitForTimeout(700);
+await page.getByRole('button', { name: 'CSV 出力' }).click();
+await page.selectOption('#exp-pii', 'ship_to');
+await page.screenshot({ path: `${out}/107-export-dialog.png` });
+const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'ダウンロード' }).click()]);
+console.log('download', dl.suggestedFilename());
+// スマホ幅のホーム（Support）
+const phone = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+const pp = await phone.newPage();
+pp.on('pageerror', (e) => errors.push('PAGEERROR(m) ' + e.message));
+await pp.goto(`${BASE}/login`);
+await pp.fill('#email', 'owner@demo.test');
+await pp.fill('#password', 'Demo-Owner-2026');
+await pp.click('button[type=submit]');
+await pp.waitForLoadState('networkidle');
+await pp.goto(`${BASE}/`);
+await pp.waitForTimeout(1200);
+await pp.screenshot({ path: `${out}/108-home-mobile.png`, fullPage: true });
+await pp.goto(`${BASE}/kpi`);
+await pp.waitForTimeout(1200);
+await pp.screenshot({ path: `${out}/109-kpi-mobile.png`, fullPage: true });
+console.log('errors:', JSON.stringify(errors));
+await browser.close();

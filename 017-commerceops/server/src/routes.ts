@@ -13,6 +13,10 @@ import { exceptionRoutes } from './modules/exceptions/routes.js';
 import { packingRoutes } from './modules/packing/routes.js';
 import { shipmentRoutes } from './modules/shipments/routes.js';
 import { returnRoutes } from './modules/returns/routes.js';
+import { kpiRoutes } from './modules/kpi/routes.js';
+import { searchRoutes } from './modules/search/routes.js';
+import { assignmentRoutes } from './modules/assignments/routes.js';
+import { exportRoutes } from './modules/exports/routes.js';
 import './jobs/register.js';
 
 /** 業務モジュールのルート登録 */
@@ -31,4 +35,8 @@ export async function registerModuleRoutes(app: FastifyInstance) {
   await app.register(packingRoutes);
   await app.register(shipmentRoutes);
   await app.register(returnRoutes);
+  await app.register(kpiRoutes);
+  await app.register(searchRoutes);
+  await app.register(assignmentRoutes);
+  await app.register(exportRoutes);
 }

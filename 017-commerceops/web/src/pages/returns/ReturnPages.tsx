@@ -7,6 +7,7 @@ import { Badge, ConfirmDialog, EmptyState, ErrorBox, Field, Loading, Modal, Page
 import { fmtDateTime } from '../../lib/format';
 import { DISPOSITION, ORDER_STATUS, RETURN_REASON, RETURN_STATUS } from '../../lib/labels';
 import { useWarehouses } from '../settings/WarehousesPage';
+import { ExportButton } from '../../components/ExportButton';
 
 const TABS = [
   { key: 'open', label: '未完了' },
@@ -34,11 +35,14 @@ export default function ReturnsPage() {
         title="返品・交換"
         sub="返品は元の注文・荷物に紐づけて管理します。到着しただけでは在庫に戻らず、検品で「再販可」にした分だけ販売可能在庫に戻ります。"
         actions={
-          can('returns.request') && (
-            <Link className="btn btn-primary" to="/returns/new">
-              返品を受け付ける
-            </Link>
-          )
+          <>
+            <ExportButton path="/returns/export" filename="returns.csv" requirePerm="returns.read" label="CSV 出力" />
+            {can('returns.request') && (
+              <Link className="btn btn-primary" to="/returns/new">
+                返品を受け付ける
+              </Link>
+            )}
+          </>
         }
       />
       <div className="tabs" role="tablist">

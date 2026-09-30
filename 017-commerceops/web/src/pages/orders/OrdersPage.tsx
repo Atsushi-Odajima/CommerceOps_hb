@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router';
 import { get } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 import { Badge, EmptyState, ErrorBox, Loading, PageHeader, Pagination, StatusBadge } from '../../components/ui';
+import { ExportButton } from '../../components/ExportButton';
 import { fmtDateTime, fmtNum } from '../../lib/format';
 import { ORDER_STATUS } from '../../lib/labels';
 import { useChannels } from '../settings/ChannelsPage';
@@ -56,6 +57,7 @@ export default function OrdersPage() {
         title="注文"
         actions={
           <>
+            <ExportButton path="/orders/export" filename="orders.csv" params={{ status: status || undefined }} pii label="CSV 出力" />
             {can('orders.import') && (
               <Link className="btn" to="/imports/new">
                 CSV 取込

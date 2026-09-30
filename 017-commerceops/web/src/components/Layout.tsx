@@ -22,6 +22,7 @@ import {
   IconSearch,
   IconSettings,
   IconTruck,
+  IconUser,
   IconWave,
 } from './icons';
 import { UpdatePrompt } from '../pwa/UpdatePrompt';
@@ -48,6 +49,7 @@ const NAV: { section: string; items: NavItem[] }[] = [
       { to: '/shipments', label: '出荷', icon: <IconTruck />, perm: ['shipments.read', 'shipments.manage'] },
       { to: '/returns', label: '返品・交換', icon: <IconReturn />, perm: ['returns.read', 'returns.receive'] },
       { to: '/exceptions', label: '例外キュー', icon: <IconAlert />, perm: 'exceptions.read', badgeKey: 'exceptionsOpen' },
+      { to: '/assignments', label: '作業割当', icon: <IconUser />, perm: ['waves.manage', 'fulfillment.manage', 'exceptions.manage'] },
     ],
   },
   {

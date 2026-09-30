@@ -5,6 +5,7 @@ import { useAuth } from '../../auth/AuthContext';
 import { Badge, EmptyState, ErrorBox, Field, Loading, Modal, Pagination, useToast } from '../../components/ui';
 import { fmtDateTime, fmtNum } from '../../lib/format';
 import { useWarehouses } from '../settings/WarehousesPage';
+import { ExportButton } from '../../components/ExportButton';
 
 export default function InventoryPage() {
   const { can } = useAuth();
@@ -25,16 +26,19 @@ export default function InventoryPage() {
     <div className="card">
       <div className="card-header">
         <h2>在庫一覧</h2>
-        {can('inventory.adjust') && (
-          <div className="actions">
-            <button className="btn btn-sm" onClick={() => setModal('import')}>
-              在庫CSV取込
-            </button>
-            <button className="btn btn-primary btn-sm" onClick={() => setModal('receipt')}>
-              入荷を登録
-            </button>
-          </div>
-        )}
+        <div className="actions">
+          <ExportButton path="/inventory/export" filename="inventory.csv" params={{ warehouseId: warehouseId || undefined }} requirePerm="inventory.read" label="在庫CSV出力" />
+          {can('inventory.adjust') && (
+            <>
+              <button className="btn btn-sm" onClick={() => setModal('import')}>
+                在庫CSV取込
+              </button>
+              <button className="btn btn-primary btn-sm" onClick={() => setModal('receipt')}>
+                入荷を登録
+              </button>
+            </>
+          )}
+        </div>
       </div>
       <form
         className="filters"

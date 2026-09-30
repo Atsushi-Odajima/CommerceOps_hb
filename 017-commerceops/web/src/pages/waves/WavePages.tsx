@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, useNavigate, useParams } from 'react-router';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { ApiError, get, post } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
 import { Badge, ConfirmDialog, EmptyState, ErrorBox, Field, Loading, Modal, PageHeader, Pagination, StatusBadge, useToast } from '../../components/ui';
@@ -498,7 +498,8 @@ export function FulfillmentsPage() {
   const whs = useWarehouses();
   const qc = useQueryClient();
   const toast = useToast();
-  const [status, setStatus] = useState('');
+  const [sp] = useSearchParams();
+  const [status, setStatus] = useState(sp.get('status') ?? '');
   const [warehouseId, setWarehouseId] = useState('');
   const [flag, setFlag] = useState('');
   const [offset, setOffset] = useState(0);

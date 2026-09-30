@@ -107,6 +107,23 @@ export const EXCEPTION_STATUS: Record<string, { label: string; tone: Tone }> = {
   ignored: { label: '対応不要', tone: '' },
 };
 
+export const RESOLUTION_CODE: Record<string, string> = {
+  fixed: '修正済み',
+  stock_adjusted: '在庫を調整',
+  reallocated: '再引当・再割当',
+  address_corrected: '住所を修正',
+  customer_contacted: 'お客様に連絡済み',
+  duplicate: '重複',
+  auto: '自動解決',
+  other: 'その他',
+};
+
+export const SEVERITY: Record<string, { label: string; tone: Tone }> = {
+  high: { label: '高', tone: 'danger' },
+  medium: { label: '中', tone: 'warning' },
+  low: { label: '低', tone: '' },
+};
+
 export const SHORT_REASON: Record<string, string> = {
   not_found: '現物なし',
   damaged: '破損',

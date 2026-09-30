@@ -46,6 +46,11 @@ const NewReturnPage = lazy(() => import('../pages/returns/ReturnPages').then((m)
 const ReturnDetailPage = lazy(() => import('../pages/returns/ReturnPages').then((m) => ({ default: m.ReturnDetailPage })));
 const MobileReturns = lazy(() => import('../mobile/MobileReturns'));
 const ReturnSlipPrint = lazy(() => import('../print/ReturnSlipPrint'));
+const ExceptionsPage = lazy(() => import('../pages/exceptions/ExceptionPages'));
+const ExceptionDetailPage = lazy(() => import('../pages/exceptions/ExceptionPages').then((m) => ({ default: m.ExceptionDetailPage })));
+const AssignmentsPage = lazy(() => import('../pages/ops/AssignmentsPage'));
+const KpiPage = lazy(() => import('../pages/kpi/KpiPage'));
+const SearchPage = lazy(() => import('../pages/SearchPage'));
 
 const S = (el: ReactNode) => <Suspense fallback={<Loading />}>{el}</Suspense>;
 const P = (perm: string | string[], el: ReactNode) => S(<RequirePerm perm={perm}>{el}</RequirePerm>);
@@ -70,6 +75,11 @@ export const appRoutes: RouteObject[] = [
   { path: 'returns', element: P(['returns.read', 'returns.receive', 'returns.inspect'], <ReturnsPage />) },
   { path: 'returns/new', element: P('returns.request', <NewReturnPage />) },
   { path: 'returns/:id', element: P(['returns.read', 'returns.receive', 'returns.inspect'], <ReturnDetailPage />) },
+  { path: 'exceptions', element: P('exceptions.read', <ExceptionsPage />) },
+  { path: 'exceptions/:id', element: P('exceptions.read', <ExceptionDetailPage />) },
+  { path: 'assignments', element: P(['waves.manage', 'fulfillment.manage', 'exceptions.manage'], <AssignmentsPage />) },
+  { path: 'kpi', element: P('kpi.read', <KpiPage />) },
+  { path: 'search', element: S(<SearchPage />) },
   {
     path: 'settings',
     element: S(<SettingsLayout />),

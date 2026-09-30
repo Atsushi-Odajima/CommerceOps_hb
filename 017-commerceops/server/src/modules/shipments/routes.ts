@@ -192,7 +192,7 @@ export async function shipmentRoutes(app: FastifyInstance) {
     });
     const date = fmtLocal(new Date(), tz).slice(0, 10).replace(/-/g, '');
     reply.header('content-type', `text/csv; charset=${q.encoding === 'shift_jis' ? 'Shift_JIS' : 'utf-8'}`);
-    reply.header('content-disposition', contentDisposition(`${q.type === 'pending' ? '出荷予定' : '出荷実績'}_${date}.csv`));
+    reply.header('content-disposition', contentDisposition(`shipments_${q.type}_${date}.csv`));
     reply.header('x-row-count', String(count));
     return reply.send(encodeCsv(text, q.encoding));
   });

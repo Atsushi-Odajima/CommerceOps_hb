@@ -13,6 +13,9 @@ import {
   type ValidationIssue,
 } from './normalized.js';
 import { recomputeOrderStatus, type OrderStatus } from './status.js';
+import { autoResolveException, createExceptionsBulk } from '../exceptions/service.js';
+
+export const ADDRESS_ISSUE_CODES = ['SHIP_TO_NAME_MISSING', 'POSTAL_MISSING', 'POSTAL_INVALID', 'ADDRESS_MISSING'];
 
 export interface NewOrderInput {
   normalized: NormalizedOrder;
@@ -208,6 +211,19 @@ export async function createOrders(tx: Tx, deps: Pick<AppDeps, 'numberingPool'>,
        FROM unnest($2::uuid[], $3::uuid[], $4::text[], $5::text[], $6::text[]) WITH ORDINALITY AS u(id, order_id, from_status, to_status, reason, ord)`,
     [tx.orgId, hist.id, hist.order, hist.from, hist.to, hist.reason, tx.actor.userId],
   );
+  // 住所不備は例外キューへ（住所修正・再検証で自動解決）
+  const addressIssues = created.filter((c) => c.validationErrors.some((e) => ADDRESS_ISSUE_CODES.includes(e.code)));
+  await createExceptionsBulk(
+    tx,
+    deps,
+    addressIssues.map((c) => ({
+      type: 'address_invalid' as const,
+      title: `住所不備: ${c.orderNumber}（${c.validationErrors.filter((e) => ADDRESS_ISSUE_CODES.includes(e.code)).map((e) => e.message).join(' / ')}）`,
+      dedupeKey: `address_invalid:${c.id}`,
+      orderId: c.id,
+      detail: { codes: c.validationErrors.filter((e) => ADDRESS_ISSUE_CODES.includes(e.code)).map((e) => e.code) },
+    })),
+  );
   return created;
 }
 
@@ -326,6 +342,7 @@ export async function changeShippingAddress(tx: Tx, orderId: string, addr: Addre
       WHERE organization_id = $1 AND id = $2`,
     [tx.orgId, orderId, a.name, postal, a.prefecture ?? null, a.city ?? null, a.address1, a.address2 ?? null, a.phone ?? null, JSON.stringify(verr)],
   );
+  await autoResolveException(tx, `address_invalid:${orderId}`, '自動解決: 送付先を修正');
   // 未出荷の下書き荷物の送付先も最新にする（出荷確定時にも再度スナップショットする）
   await tx.exec(
     `UPDATE shipments SET ship_to = $3, updated_at = now() WHERE organization_id = $1 AND order_id = $2 AND status = 'draft'`,
@@ -399,6 +416,7 @@ export async function revalidateOrderRow(tx: Tx, orderId: string) {
     orderId,
     JSON.stringify(issues),
   ]);
+  if (!issues.some((i) => ADDRESS_ISSUE_CODES.includes(i.code))) await autoResolveException(tx, `address_invalid:${orderId}`, '自動解決: 再検証で住所の問題なし');
   const st = await recomputeOrderStatus(tx, orderId, issues.length ? '再検証（エラーあり）' : '再検証OK');
   return { issues, status: st.to };
 }
