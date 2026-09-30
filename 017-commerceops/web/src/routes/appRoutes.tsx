@@ -15,12 +15,24 @@ const ImportProfileEditor = lazy(() => import('../pages/settings/ImportProfilesP
 const InventoryLayout = lazy(() => import('../pages/inventory/InventoryLayout'));
 const ProductsPage = lazy(() => import('../pages/inventory/ProductsPage'));
 const LocationLabelsPrint = lazy(() => import('../print/LocationLabelsPrint'));
+const ImportsPage = lazy(() => import('../pages/imports/ImportPages'));
+const NewImportPage = lazy(() => import('../pages/imports/ImportPages').then((m) => ({ default: m.NewImportPage })));
+const ImportDetailPage = lazy(() => import('../pages/imports/ImportPages').then((m) => ({ default: m.ImportDetailPage })));
+const OrdersPage = lazy(() => import('../pages/orders/OrdersPage'));
+const OrderDetailPage = lazy(() => import('../pages/orders/OrderDetailPage'));
+const NewOrderPage = lazy(() => import('../pages/orders/NewOrderPage'));
 
 const S = (el: ReactNode) => <Suspense fallback={<Loading />}>{el}</Suspense>;
 const P = (perm: string | string[], el: ReactNode) => S(<RequirePerm perm={perm}>{el}</RequirePerm>);
 
 export const appRoutes: RouteObject[] = [
   { index: true, element: S(<HomePage />) },
+  { path: 'imports', element: P('orders.import', <ImportsPage />) },
+  { path: 'imports/new', element: P('orders.import', <NewImportPage />) },
+  { path: 'imports/:id', element: P('orders.import', <ImportDetailPage />) },
+  { path: 'orders', element: P('orders.read', <OrdersPage />) },
+  { path: 'orders/new', element: P('orders.import', <NewOrderPage />) },
+  { path: 'orders/:id', element: P('orders.read', <OrderDetailPage />) },
   {
     path: 'settings',
     element: S(<SettingsLayout />),

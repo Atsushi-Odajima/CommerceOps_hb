@@ -4,6 +4,8 @@ import { warehouseRoutes } from './modules/warehouses/routes.js';
 import { productRoutes } from './modules/products/routes.js';
 import { channelRoutes } from './modules/channels/routes.js';
 import { dashboardRoutes } from './modules/dashboard/routes.js';
+import { orderRoutes } from './modules/orders/routes.js';
+import { importRoutes } from './modules/imports/routes.js';
 
 /** 業務モジュールのルート登録 */
 export async function registerModuleRoutes(app: FastifyInstance) {
@@ -12,4 +14,6 @@ export async function registerModuleRoutes(app: FastifyInstance) {
   await app.register(productRoutes);
   await app.register(channelRoutes);
   await app.register(dashboardRoutes);
+  await app.register(orderRoutes);
+  await app.register(importRoutes);
 }

@@ -6,7 +6,7 @@
 |---|---|---|---|
 | 0 | 技術/料金/ライセンス、設計文書、RLS/RBAC/競合 PoC、PWA シェル | ✅ | PoC テスト 10/10。料金は公式ページ直接取得不可のため [A]/[B] 区分で記録 |
 | 1 | Organization, Warehouse, Users/RBAC, Channel, ImportProfile | ✅ | API テスト 14 + マッピング単体 21。画面: 設定（組織/倉庫・ロケーション/ユーザー/チャネル/Import Profile エディタ）、商品 |
-| 2 | CSV Import, 正規化, Order/Item, 重複/競合 | ⬜ | |
+| 2 | CSV Import, 正規化, Order/Item, 重複/競合 | ✅ | テスト 14（R19/R20/R21/R25 含む）。画面: 取込ウィザード・取込履歴・注文一覧/詳細・手動注文 |
 | 3 | 最小在庫, Allocation, 欠品/保留, 複数倉庫 | ⬜ | |
 | 4 | Fulfillment, Wave, Pick List, スマホ Pick | ⬜ | |
 | 5 | Packing Station, scan 検品 | ⬜ | |
@@ -36,3 +36,13 @@
 - Import Profile: 宣言的マッピング（列名/列番号/連結/固定値 + 許可リスト変換）、日付書式トークン + IANA タイムゾーン、列名同義語による候補提案、サンプル CSV での変換確認
 - テスト: server/test/phase1-api.test.ts（14）, phase1-mapping.test.ts（21, R25 CSV formula injection を含む）
 - UI スモーク: e2e/scripts/smoke-phase1.mjs（PC 1366px / スマホ 390px のスクリーンショットで確認）
+
+## Phase2 詳細（2026-09-30）
+- 取込: preview（ファイル SHA-256 重複拒否 → 文字コード → csv-parse → マッピング → 注文グルーピング → 行/注文検証 → 既存比較で分類）→ commit（advisory lock でチャネル単位に直列化、再分類、一括 INSERT、1 トランザクション）
+- 分類: new / identical / update_candidate（引当前のみ・適用選択時のみ更新・住所履歴）/ conflict（例外 import_conflict）/ cancel_candidate（自動取消しない・例外）/ invalid
+- 注文状態: 導出 + 許可遷移表 + order_status_history（imported → validation_required/ready_for_allocation の 2 行から開始）
+- スナップショット: 注文行に購入者/送付先を固定。顧客マスターは新規作成のみで既存を上書きしない（R21）
+- 要確認の解消: 未登録 SKU の商品対応付け（原文 SKU 保持・監査）、住所変更（履歴・出荷前のみ）、再検証
+- 保留: 理由コード・メモ・保留/解除の実行者と日時、Pick 中は confirm 必須、Fulfillment の on_hold 連動
+- 個人情報のステージングデータは 7 日後に削除（maintenance job）
+- UI スモーク: e2e/scripts/smoke-phase2.mjs（取込プレビュー→確定→注文一覧→詳細）

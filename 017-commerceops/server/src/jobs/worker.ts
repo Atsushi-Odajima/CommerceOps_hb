@@ -3,6 +3,7 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { AppDeps } from '../http.js';
 import { claimJob, completeJob, enqueue, failJob, recoverStaleJobs, type JobRow } from './queue.js';
 import { jobHandlers } from './handlers.js';
+import './register.js';
 
 export interface WorkerHandle {
   stop(): Promise<void>;
