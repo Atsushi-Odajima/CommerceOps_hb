@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useParams } from 'react-router';
 import { ApiError, get, patch, post, put } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
-import { Badge, ErrorBox, Field, Loading, Modal, PageHeader, StatusBadge, useToast } from '../../components/ui';
+import { Badge, ConfirmDialog, ErrorBox, Field, Loading, Modal, PageHeader, StatusBadge, useToast } from '../../components/ui';
 import { fmtDateTime, fmtNum } from '../../lib/format';
 import { EXCEPTION_STATUS, EXCEPTION_TYPE, FULFILLMENT_STATUS, HOLD_REASON, ORDER_STATUS, RETURN_STATUS, SHIPMENT_STATUS, carrierLabel } from '../../lib/labels';
 import { AddressFields } from './NewOrderPage';
@@ -230,6 +230,7 @@ export default function OrderDetailPage() {
                   <th>Wave</th>
                   <th>内容（必要/ピック/梱包/出荷）</th>
                   <th>期限</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -254,6 +255,36 @@ export default function OrderDetailPage() {
                       ))}
                     </td>
                     <td className="small">{fmtDateTime(f.dueAt)}</td>
+                    <td className="row" style={{ gap: 6 }}>
+                      {['packed', 'shipped'].includes(f.status) && (can('pack.execute') || can('fulfillment.manage')) && (
+                        <Link className="btn btn-sm" to={`/print/packing-slip/${f.id}`} target="_blank">
+                          納品書
+                        </Link>
+                      )}
+                      {f.status === 'packed' && (can('pack.execute') || can('fulfillment.manage')) && (
+                        <button
+                          className="btn btn-sm"
+                          onClick={() =>
+                            setModal(
+                              <ConfirmDialog
+                                title={`${f.fulfillmentNumber} の梱包を取り消す`}
+                                message="出荷確定前の荷物（下書き）を取り消し、梱包前（ピック済み）の状態に戻します。箱を開けて Packing Station で梱包し直してください。"
+                                confirmLabel="梱包を取り消す"
+                                danger
+                                requireReason
+                                onClose={close}
+                                onConfirm={async (reason) => {
+                                  await post(`/fulfillments/${f.id}/unpack`, { reason });
+                                  refresh();
+                                }}
+                              />,
+                            )
+                          }
+                        >
+                          梱包取消
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

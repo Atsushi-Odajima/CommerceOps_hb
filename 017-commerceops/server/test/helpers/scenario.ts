@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { expectStatus, TestClient, type TestEnv } from './env.js';
 import { createOrg, type TestUser } from './factory.js';
 import { STANDARD_TEMPLATE_MAPPING } from '../../src/modules/channels/routes.js';
@@ -146,4 +147,42 @@ export async function availability(client: TestClient, productId: string, wareho
     available: pick.reduce((s, b) => s + b.available, 0),
     balances: r,
   };
+}
+
+/** 手動注文を作成して引当（全量引当なら Fulfillment 化まで） */
+export async function allocatedOrder(
+  client: TestClient,
+  channelId: string,
+  ext: string,
+  lines: { sku: string; quantity: number }[],
+  opts: { warehouseId?: string; expect?: 'full' | 'partial' | 'none' } = {},
+) {
+  const o = await manualOrder(client, channelId, ext, lines);
+  const r = expectStatus(await client.post(`/api/orders/${o.id}/allocate`, opts.warehouseId ? { warehouseId: opts.warehouseId } : {}), 200).body;
+  if ((opts.expect ?? 'full') !== r.outcome) throw new Error(`allocation outcome ${r.outcome} (expected ${opts.expect ?? 'full'})`);
+  return { ...o, allocation: r };
+}
+
+/** Wave を作成（省略時は倉庫の Wave 待ち全件）し、全タスクを全数ピックする */
+export async function waveAndPickAll(client: TestClient, warehouseId: string, fulfillmentIds?: string[]) {
+  const pv = expectStatus(await client.post('/api/waves/preview', { warehouseId }), 200).body;
+  const ids: string[] = fulfillmentIds ?? pv.fulfillments.map((f: any) => f.id);
+  const w = expectStatus(await client.post('/api/waves', { warehouseId, fulfillmentIds: ids }), 200).body;
+  const detail = expectStatus(await client.get(`/api/waves/${w.waveId}`), 200).body;
+  for (const t of detail.tasks) {
+    const v = expectStatus(await client.post(`/api/pick-tasks/${t.id}/claim`), 200).body;
+    for (const g of v.groups) {
+      if (g.remaining > 0) {
+        expectStatus(
+          await client.post(`/api/pick-tasks/${t.id}/pick`, { clientEventId: randomUUID(), locationId: g.locationId, code: g.sku, qty: g.remaining, inputMethod: 'manual' }),
+          200,
+        );
+      }
+    }
+  }
+  return { waveId: w.waveId as string, fulfillmentIds: ids };
+}
+
+export async function orderDetail(client: TestClient, orderId: string) {
+  return expectStatus(await client.get(`/api/orders/${orderId}`), 200).body;
 }

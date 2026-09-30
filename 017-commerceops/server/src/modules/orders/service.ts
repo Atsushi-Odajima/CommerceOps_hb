@@ -326,6 +326,11 @@ export async function changeShippingAddress(tx: Tx, orderId: string, addr: Addre
       WHERE organization_id = $1 AND id = $2`,
     [tx.orgId, orderId, a.name, postal, a.prefecture ?? null, a.city ?? null, a.address1, a.address2 ?? null, a.phone ?? null, JSON.stringify(verr)],
   );
+  // 未出荷の下書き荷物の送付先も最新にする（出荷確定時にも再度スナップショットする）
+  await tx.exec(
+    `UPDATE shipments SET ship_to = $3, updated_at = now() WHERE organization_id = $1 AND order_id = $2 AND status = 'draft'`,
+    [tx.orgId, orderId, JSON.stringify({ ...newValue, phone: a.phone ?? null })],
+  );
   const packed = await tx.one(
     `SELECT count(*)::int AS n FROM fulfillments WHERE organization_id = $1 AND order_id = $2 AND status IN ('packing', 'packed')`,
     [tx.orgId, orderId],

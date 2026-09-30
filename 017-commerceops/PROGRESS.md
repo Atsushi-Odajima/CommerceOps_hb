@@ -9,7 +9,7 @@
 | 2 | CSV Import, 正規化, Order/Item, 重複/競合 | ✅ | テスト 14（R19/R20/R21/R25 含む）。画面: 取込ウィザード・取込履歴・注文一覧/詳細・手動注文 |
 | 3 | 最小在庫, Allocation, 欠品/保留, 複数倉庫 | ✅ | テスト 13（R01〜R05, R24, R20 競合）。画面: 引当・在庫一覧/履歴・注文の引当パネル |
 | 4 | Fulfillment, Wave, Pick List, スマホ Pick | ✅ | テスト 9（R06〜R09、Short、訂正、Claim 期限、倉庫スコープ、割当候補/現場報告の RBAC）。画面: Fulfillment・Wave 作成/詳細・スマホ現場モード（Pick/商品確認/報告）・Pick List/注文識別コード印刷 |
-| 5 | Packing Station, scan 検品 | ⬜ | |
+| 5 | Packing Station, scan 検品 | ✅ | テスト 9（R10, R11、誤 scan 5 種、強制完了、開始条件/引継ぎ/保留、複数箱・訂正・梱包取消、まとめ入力、注文キャンセル、RBAC/倉庫/テナント）。画面: Packing Station（PC/iPad）・納品書印刷 |
 | 6 | Shipment, 分割発送, Tracking | ⬜ | |
 | 7 | Return, 検品, Restock, Exchange | ⬜ | |
 | 8 | 例外, 作業割当, KPI, 検索, CSV export | ⬜ | |
@@ -74,3 +74,15 @@
 - UI スモーク: e2e/scripts/smoke-phase4.mjs（PC で Wave 作成 → 招待した Picker が 390px 幅で claim → 誤ロケーション/誤 SKU/正 scan/数量まとめ → 完了、商品確認、現場報告、Picker の /api/orders は 403、印刷画面）
 - 発見・修正した問題: 誤 scan の 422 応答が共通エラー形式でなく画面に「エラーが発生しました (422)」と表示 → { error: { code, message } } を併記。
   QR 生成で height: undefined を渡し bwipp.invalidOptionType → QR ではオプションを渡さない。バーコード生成ライブラリ（約 1MB）を PWA プリキャッシュから除外
+
+## Phase5 詳細（2026-09-30）
+- API: /api/pack/queue, /api/pack/open（注文番号・出荷作業番号・fulfillmentId、管理者 takeover）, /api/pack/sessions/:id（表示）, scan, correct, next-box, complete, cancel,
+  /api/fulfillments/:id/unpack, /api/fulfillments/:id/packing-slip
+- R10: 必要 2 / scan 1 では完了不可（PACK_INCOMPLETE）。R11: 同じ clientEventId の同時再送 4 本で加算 1 回（セッション行ロック後に既存イベントを確認）
+- 誤 scan: 別注文（同じ Wave）/ 別 variant（group_code）/ 注文外 SKU / 未登録コード / 数量過多 を区別して記録（mis_scan_count → KPI 用）
+- 強制完了: pack.force_complete（Owner / Operations Manager）+ 理由必須 + 強い警告ダイアログ。例外 forced_pack（high）・監査 pack.force_complete
+- 完了で箱ごとの下書き Shipment を作成（Phase6 で配送会社・追跡番号を入れて出荷確定）。住所変更時は下書きの送付先も更新
+- 整合性チェックに追加: packed_qty = 有効セッションの pack イベント合計、下書き/出荷の荷物数量 <= packed_qty、完了セッションには荷物がある
+- UI スモーク: e2e/scripts/smoke-phase5.mjs（招待した Packer が iPad 縦 820px で注文番号 scan → 別注文の商品で赤警告 → 数量過多 → 全数 → 完了、
+  管理者が PC で引継ぎ → 強制完了 → forced_pack 例外、納品書）
+- 発見・修正した問題: 管理者引継ぎ時に「期限切れを引き継ぎ」と誤表示 → takeoverReason を返して表示を分岐。iPad 縦で完了ボタンが遠い → 全数一致時は scan 欄の直下にも完了ボタン

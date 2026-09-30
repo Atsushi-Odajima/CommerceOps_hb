@@ -10,6 +10,7 @@ import { inventoryRoutes } from './modules/inventory/routes.js';
 import { allocationRoutes } from './modules/allocation/routes.js';
 import { waveRoutes } from './modules/waves/routes.js';
 import { exceptionRoutes } from './modules/exceptions/routes.js';
+import { packingRoutes } from './modules/packing/routes.js';
 import './jobs/register.js';
 
 /** 業務モジュールのルート登録 */
@@ -25,4 +26,5 @@ export async function registerModuleRoutes(app: FastifyInstance) {
   await app.register(allocationRoutes);
   await app.register(waveRoutes);
   await app.register(exceptionRoutes);
+  await app.register(packingRoutes);
 }

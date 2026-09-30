@@ -65,6 +65,31 @@ const CHECKS: { name: string; sql: string }[] = [
           HAVING fi.shipped_qty <> COALESCE(SUM(si.quantity) FILTER (WHERE s.status = 'shipped'), 0)`,
   },
   {
+    name: 'fulfillment_item.packed_qty = Σ pack events of active/completed sessions (cancelled fulfillments excluded)',
+    sql: `SELECT fi.id, fi.packed_qty, COALESCE(x.n, 0) AS events
+            FROM fulfillment_items fi
+            JOIN fulfillments f ON f.organization_id = fi.organization_id AND f.id = fi.fulfillment_id AND f.status <> 'cancelled'
+            LEFT JOIN (SELECT e.fulfillment_item_id, SUM(e.qty) AS n FROM pack_events e
+                         JOIN pack_sessions ps ON ps.organization_id = e.organization_id AND ps.id = e.pack_session_id AND ps.status IN ('active', 'completed')
+                        WHERE e.organization_id = $1 AND e.event_type IN ('scan', 'correction', 'force_complete') GROUP BY e.fulfillment_item_id) x
+              ON x.fulfillment_item_id = fi.id
+           WHERE fi.organization_id = $1 AND fi.packed_qty <> COALESCE(x.n, 0)`,
+  },
+  {
+    name: 'Σ non-cancelled shipment_items <= fulfillment_item.packed_qty',
+    sql: `SELECT fi.id, fi.packed_qty, SUM(si.quantity) AS in_shipments
+            FROM fulfillment_items fi
+            JOIN shipment_items si ON si.organization_id = fi.organization_id AND si.fulfillment_item_id = fi.id
+            JOIN shipments s ON s.organization_id = si.organization_id AND s.id = si.shipment_id AND s.status <> 'cancelled'
+           WHERE fi.organization_id = $1 GROUP BY fi.id, fi.packed_qty HAVING SUM(si.quantity) > fi.packed_qty`,
+  },
+  {
+    name: 'at most one active pack session per fulfillment / completed sessions have shipments',
+    sql: `SELECT ps.id, ps.status FROM pack_sessions ps
+           WHERE ps.organization_id = $1 AND ps.status = 'completed'
+             AND NOT EXISTS (SELECT 1 FROM shipments s WHERE s.organization_id = ps.organization_id AND s.pack_session_id = ps.id)`,
+  },
+  {
     name: 'allocation.shipped_qty = Σ ship movements',
     sql: `SELECT a.id, a.shipped_qty, COALESCE(-SUM(m.on_hand_delta), 0) AS moved
             FROM allocations a LEFT JOIN inventory_movements m

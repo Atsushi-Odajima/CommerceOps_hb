@@ -35,6 +35,9 @@ const ProductLookup = lazy(() => import('../mobile/ProductLookup'));
 const FieldReport = lazy(() => import('../mobile/FieldReport'));
 const PickListPrint = lazy(() => import('../print/PickListPrint'));
 const OrderLabelPrint = lazy(() => import('../print/OrderLabelPrint'));
+const PackHome = lazy(() => import('../pages/pack/PackPages'));
+const PackStation = lazy(() => import('../pages/pack/PackPages').then((m) => ({ default: m.PackStation })));
+const PackingSlipPrint = lazy(() => import('../print/PackingSlipPrint'));
 
 const S = (el: ReactNode) => <Suspense fallback={<Loading />}>{el}</Suspense>;
 const P = (perm: string | string[], el: ReactNode) => S(<RequirePerm perm={perm}>{el}</RequirePerm>);
@@ -52,6 +55,8 @@ export const appRoutes: RouteObject[] = [
   { path: 'waves', element: P(['waves.read', 'waves.manage'], <WavesPage />) },
   { path: 'waves/new', element: P('waves.manage', <WaveCreatePage />) },
   { path: 'waves/:id', element: P(['waves.read', 'waves.manage'], <WaveDetailPage />) },
+  { path: 'pack', element: P(['pack.execute', 'fulfillment.manage'], <PackHome />) },
+  { path: 'pack/:sessionId', element: P(['pack.execute', 'fulfillment.manage'], <PackStation />) },
   {
     path: 'settings',
     element: S(<SettingsLayout />),
@@ -88,4 +93,5 @@ export const printRoutes: RouteObject[] = [
   { path: 'location-labels/:warehouseId', element: P('warehouses.manage', <LocationLabelsPrint />) },
   { path: 'pick-list/:waveId', element: P(['waves.read', 'waves.manage'], <PickListPrint />) },
   { path: 'order-label/:id', element: P('orders.read', <OrderLabelPrint />) },
+  { path: 'packing-slip/:fulfillmentId', element: P(['pack.execute', 'fulfillment.manage'], <PackingSlipPrint />) },
 ];

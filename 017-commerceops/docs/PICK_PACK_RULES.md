@@ -67,6 +67,20 @@ event_type(`pick`/`correction`/`short`/`mis_scan_location`/`mis_scan_sku`), resu
   強い警告ダイアログ。例外 `forced_pack` と監査ログを残す。通常は全数一致必須（必要 2 / scan 1 では完了不可）。
 - scan 訂正（1 個取り消し）は負数イベント。セッション取消時は scan をリセット（イベントは履歴として残る）。
 
+### 実装メモ（Phase5）
+- 開始条件: 全数ピック済み（未解決の Short なし）・保留なし・取消/出荷済みでない。注文番号で読んだ場合、梱包可能な出荷作業が複数あれば選択させる。
+- 担当: 1 Fulfillment = 1 active PackSession（部分 UNIQUE + Fulfillment 行ロック）。同じ Packer は再開、作業期限（claimTimeoutMinutes）切れは他の Packer が引継ぎ、
+  作業中のセッションの引継ぎは管理者（fulfillment.manage）のみ `takeover: true` で可能（監査ログ pack.takeover）。
+- ロック順序は Fulfillment → PackSession（注文キャンセル・保留とのデッドロック回避）。
+- 誤 scan の判定順: 未登録コード → 同じ Wave の別注文の商品 → 同じ商品グループ（group_code）の別 variant → この注文にない SKU → 数量過多。
+  いずれも数量は加算せず pack_events（mis_scan_*）と mis_scan_count に記録し、画面は大きな赤表示 + 警告音。
+- まとめ入力（qty > 1）は同じ商品を 1 個以上 scan して商品を確認した後のみ（SCAN_FIRST）。2 段階確認。
+- 複数箱: 「箱を閉じて次の箱へ」（空の箱は閉じられない）。完了時に箱ごとに下書き Shipment（送付先スナップショット、配送方法、既定の配送会社）を作成。
+- 完了は requestId で冪等（同じ requestId の再送は同じ荷物を返す）。強制完了は未検品分を梱包扱いにし、forced_pack 例外（重要度 高）と監査ログを残す。
+- 梱包取消（unpack）: 梱包済み・未出荷のみ。下書き Shipment を取消し packed_qty を 0 に戻す（イベントは履歴として残る）。出荷確定済みの箱がある場合は不可。
+- 保留中は scan・完了不可（ON_HOLD）。注文キャンセル（confirm 必須）でセッションは中止され、以降の scan は拒否。
+- 画面: PC / iPad（/pack）。オフライン時は scan・完了を無効化（オフライン確定しない）。納品書（価格なし・備考なし）は /print/packing-slip。
+
 ## 4. 帳票
 - Pick List（Wave 単位、SKU/Location 集約、ロケーション順、Wave バーコード）
 - Packing Slip（納品書: 注文番号・商品・数量、Fulfillment コード）
