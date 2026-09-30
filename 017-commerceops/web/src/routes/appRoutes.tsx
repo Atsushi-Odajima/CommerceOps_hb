@@ -21,6 +21,9 @@ const ImportDetailPage = lazy(() => import('../pages/imports/ImportPages').then(
 const OrdersPage = lazy(() => import('../pages/orders/OrdersPage'));
 const OrderDetailPage = lazy(() => import('../pages/orders/OrderDetailPage'));
 const NewOrderPage = lazy(() => import('../pages/orders/NewOrderPage'));
+const AllocationPage = lazy(() => import('../pages/allocation/AllocationPage'));
+const InventoryPage = lazy(() => import('../pages/inventory/InventoryPage'));
+const MovementsPage = lazy(() => import('../pages/inventory/InventoryPage').then((m) => ({ default: m.MovementsPage })));
 
 const S = (el: ReactNode) => <Suspense fallback={<Loading />}>{el}</Suspense>;
 const P = (perm: string | string[], el: ReactNode) => S(<RequirePerm perm={perm}>{el}</RequirePerm>);
@@ -33,6 +36,7 @@ export const appRoutes: RouteObject[] = [
   { path: 'orders', element: P('orders.read', <OrdersPage />) },
   { path: 'orders/new', element: P('orders.import', <NewOrderPage />) },
   { path: 'orders/:id', element: P('orders.read', <OrderDetailPage />) },
+  { path: 'allocation', element: P('allocation.manage', <AllocationPage />) },
   {
     path: 'settings',
     element: S(<SettingsLayout />),
@@ -49,7 +53,11 @@ export const appRoutes: RouteObject[] = [
   {
     path: 'inventory',
     element: P(['inventory.read', 'products.read'], <InventoryLayout />),
-    children: [{ path: 'products', element: S(<ProductsPage />) }],
+    children: [
+      { index: true, element: P('inventory.read', <InventoryPage />) },
+      { path: 'products', element: S(<ProductsPage />) },
+      { path: 'movements', element: P('inventory.read', <MovementsPage />) },
+    ],
   },
 ];
 

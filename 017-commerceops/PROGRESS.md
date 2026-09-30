@@ -7,7 +7,7 @@
 | 0 | 技術/料金/ライセンス、設計文書、RLS/RBAC/競合 PoC、PWA シェル | ✅ | PoC テスト 10/10。料金は公式ページ直接取得不可のため [A]/[B] 区分で記録 |
 | 1 | Organization, Warehouse, Users/RBAC, Channel, ImportProfile | ✅ | API テスト 14 + マッピング単体 21。画面: 設定（組織/倉庫・ロケーション/ユーザー/チャネル/Import Profile エディタ）、商品 |
 | 2 | CSV Import, 正規化, Order/Item, 重複/競合 | ✅ | テスト 14（R19/R20/R21/R25 含む）。画面: 取込ウィザード・取込履歴・注文一覧/詳細・手動注文 |
-| 3 | 最小在庫, Allocation, 欠品/保留, 複数倉庫 | ⬜ | |
+| 3 | 最小在庫, Allocation, 欠品/保留, 複数倉庫 | ✅ | テスト 13（R01〜R05, R24, R20 競合）。画面: 引当・在庫一覧/履歴・注文の引当パネル |
 | 4 | Fulfillment, Wave, Pick List, スマホ Pick | ⬜ | |
 | 5 | Packing Station, scan 検品 | ⬜ | |
 | 6 | Shipment, 分割発送, Tracking | ⬜ | |
@@ -46,3 +46,14 @@
 - 保留: 理由コード・メモ・保留/解除の実行者と日時、Pick 中は confirm 必須、Fulfillment の on_hold 連動
 - 個人情報のステージングデータは 7 日後に削除（maintenance job）
 - UI スモーク: e2e/scripts/smoke-phase2.mjs（取込プレビュー→確定→注文一覧→詳細）
+
+## Phase3 詳細（2026-09-30）
+- 在庫台帳: inventory_balances(on_hand/allocated/held) + inventory_movements（冪等キー UNIQUE）。入荷・調整（set/delta）・ロケーション移動・調査中解消・在庫 CSV 取込
+- 引当: 注文行ロック→残必要数再計算→倉庫計画（全量可を優先、なければ最多の倉庫で一部）→ロケーション選択（単一で足りる所→pick_sequence 順）→balance ID 順に条件付き UPDATE。
+  競合で取られた場合は在庫を再読込して最大 5 回再試行（R02b: 30 注文 × 在庫 10 で必ず 10 件確保・過剰引当なし）
+- 分割は自動確定しない（分割候補を返し、倉庫指定の手動引当で確定）。全量引当で自動 Fulfillment 化（設定）、一部引当は「揃った分を先行出荷」で明示 release
+- 欠品例外（dedupe: 注文単位）を作成し、全量引当・取消・明細取消で自動解決
+- キャンセル: 未出荷 Allocation を解放、Pick/Pack 中は confirm 必須 + 棚戻し例外、出荷済みがあれば全体取消不可。明細取消は人間の明示操作のみ
+- Job: allocation.run（dedupe key で組織ごとに同時 1 本）
+- 整合性チェック: modules/integrity/check.ts（ledger と各数量の不変条件）をテストで毎回検証
+- 発見・修正した問題: 同時実行で予定ロケーションを取られた際に再読込しておらず引当不足（過剰ではない）になっていた → 再試行ループを追加

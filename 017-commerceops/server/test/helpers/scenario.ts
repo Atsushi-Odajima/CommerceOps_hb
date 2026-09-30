@@ -104,3 +104,46 @@ export async function importCsv(client: TestClient, profileId: string, csv: Buff
   const cm = expectStatus(await client.post(`/api/imports/${pv.body.batchId}/commit`, { applyUpdateIds }), 200);
   return { preview: pv.body, commit: cm.body };
 }
+
+export async function locationsOf(client: TestClient, warehouseId: string): Promise<Record<string, string>> {
+  const r = expectStatus(await client.get(`/api/warehouses/${warehouseId}/locations`), 200).body.items as { id: string; code: string }[];
+  return Object.fromEntries(r.map((l) => [l.code, l.id]));
+}
+
+export async function receive(client: TestClient, locationId: string, productId: string, qty: number) {
+  return expectStatus(await client.post('/api/inventory/receipts', { locationId, productId, qty, reason: 'test' }), 200).body;
+}
+
+export async function manualOrder(
+  client: TestClient,
+  channelId: string,
+  ext: string,
+  lines: { sku: string; quantity: number }[],
+  extra: Record<string, unknown> = {},
+): Promise<{ id: string; orderNumber: string; status: string }> {
+  return expectStatus(
+    await client.post('/api/orders', {
+      channelId,
+      order: {
+        externalOrderId: ext,
+        customer: { name: '顧客 太郎', email: `${ext.toLowerCase()}@example.test` },
+        shipTo: { name: '顧客 太郎', postalCode: '150-0001', address1: '東京都渋谷区神宮前1-1-1', phone: '090-0000-0000' },
+        lines,
+        ...extra,
+      },
+    }),
+    200,
+  ).body;
+}
+
+export async function availability(client: TestClient, productId: string, warehouseId?: string) {
+  const r = expectStatus(await client.get(`/api/inventory/balances?productId=${productId}${warehouseId ? `&warehouseId=${warehouseId}` : ''}`), 200).body.items as any[];
+  const pick = r.filter((b) => b.kind === 'pick');
+  return {
+    onHand: pick.reduce((s, b) => s + b.onHand, 0),
+    allocated: pick.reduce((s, b) => s + b.allocated, 0),
+    held: pick.reduce((s, b) => s + b.held, 0),
+    available: pick.reduce((s, b) => s + b.available, 0),
+    balances: r,
+  };
+}
