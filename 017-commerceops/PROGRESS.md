@@ -167,3 +167,9 @@
 - デプロイ: Dockerfile（マルチステージ、node ユーザー、本番依存のみ、424MB）、docker-compose.yml + deploy/postgres-init.sh（アプリ専用 DB ユーザー）、
   render.yaml（例・未検証）、docs/DEPLOY.md。本番設定で RLS をバイパスできる DB ユーザーなら起動を拒否
 - docs/RELEASE_CHECKLIST.md（人が行う販売前の確認）、NEXT_STEPS.txt、SECURITY.md §8、DEVELOPMENT.md のコマンド
+
+## StockPilot（#013）統合
+- 内容は DECISIONS.md ADR-040。移行 0004（suppliers / product_replenishment / purchase_orders / purchase_order_lines / stocktakes / stocktake_lines、movement の reversal）。
+- サーバー: modules/purchasing（仕入先・発注・入荷・打切り・補充候補・下書き作成）、modules/stocktake、inventory の取消 API。権限 purchasing.read/manage・stocktake.count/confirm。
+- テスト: test/phase12-stockpilot-merge.test.ts（9件）。既存のバックアップ/復元（新しい表を含めて全行一致）・テナント分離の総当たり（新しいルートも他組織IDで成功しない）を更新。
+- 画面: 在庫・商品に「発注」「補充」「仕入先」「棚卸」タブ、在庫履歴に「取消」ボタン。デザインは既存部品のみ（最低限）。

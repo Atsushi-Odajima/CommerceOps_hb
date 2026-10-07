@@ -29,7 +29,9 @@
 | orders.edit | メモ・優先度・住所変更（出荷前のみ） |
 | orders.hold | 保留・解除 |
 | orders.cancel | 注文/明細キャンセル |
-| inventory.read / inventory.adjust | 在庫参照 / 在庫調整・入荷・移動・held 解消 |
+| inventory.read / inventory.adjust | 在庫参照 / 在庫調整・入荷・移動・held 解消・誤登録の取消・発注入荷 |
+| purchasing.read / purchasing.manage | 仕入先・発注・補充候補の参照 / 仕入先・補充設定・発注の作成〜打切り（ADR-040） |
+| stocktake.count / stocktake.confirm | 棚卸の開始・計数・差異確認 / 棚卸の確定・中止 |
 | allocation.manage | 引当実行・手動引当/解除・先行出荷 |
 | fulfillment.manage | Fulfillment 操作・Short Pick の解決・再割当 |
 | waves.read / waves.manage | Wave・Pick List 参照 / 作成・取消・タスク割当 |
@@ -62,6 +64,9 @@
 | orders.edit / orders.hold | ✓ | ✓ | – | – | ✓ |
 | inventory.read | ✓ | ✓ | – | – | ✓ |
 | inventory.adjust | ✓ | ✓ | – | – | **–** |
+| purchasing.read / purchasing.manage | ✓ | ✓ | – | – | – |
+| stocktake.count | ✓ | ✓ | ✓ | – | – |
+| stocktake.confirm | ✓ | ✓ | – | – | – |
 | allocation.manage / fulfillment.manage / waves.manage | ✓ | ✓ | – | – | – |
 | waves.read | ✓ | ✓ | ✓ | – | – |
 | pick.execute | ✓ | ✓ | ✓ | – | – |

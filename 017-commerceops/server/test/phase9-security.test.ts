@@ -65,6 +65,7 @@ describe('Phase9 tenant isolation sweep (R22) and security', () => {
       if (param === 'holdId') return ids.holdId!;
       if (param === 'barcodeId') return ids.barcodeId!;
       if (param === 'userId') return ids.userId!;
+      if (param === 'lineId') return ids.stocktakeLineId!;
       const seg = url.split('/:' + param)[0]!.split('/').pop()!;
       const map: Record<string, string> = {
         orders: ids.orderId!,
@@ -84,6 +85,10 @@ describe('Phase9 tenant isolation sweep (R22) and security', () => {
         shipments: ids.shipmentId!,
         returns: ids.returnId!,
         attachments: ids.attachmentId!,
+        suppliers: ids.supplierId!,
+        'purchase-orders': ids.purchaseOrderId!,
+        stocktakes: ids.stocktakeId!,
+        movements: ids.movementId!,
         jobs: '1',
       };
       if (!map[seg]) throw new Error(`no id mapping for ${url} (:${param})`);
@@ -122,6 +127,14 @@ describe('Phase9 tenant isolation sweep (R22) and security', () => {
         bulk: { lines: ['Z-98'] },
         'password-reset': {},
       };
+      // StockPilot 統合分（同じ末尾の別ルートと区別する）
+      if (url.startsWith('/api/purchase-orders/') && last === 'receive') return { requestId: uuid, lines: [{ lineId: uuid, qty: 1 }] };
+      if (url.startsWith('/api/purchase-orders/') && last === 'close') return { reason: 'x' };
+      if (url === '/api/purchase-orders/:id') return { lines: [{ productId: ids.productId, qty: 1 }] };
+      if (url === '/api/suppliers/:id') return { code: 'IDOR', name: 'IDOR' };
+      if (last === 'replenishment') return { settings: null };
+      if (last === 'reverse') return { reason: 'x', requestId: uuid };
+      if (url.endsWith('/lines/:lineId')) return { countedQty: 1, version: 1 };
       if (b2[last]) return b2[last]!;
       if (/\/:id$|\/:userId$/.test(url)) {
         if (url.startsWith('/api/shipments')) return { carrier: 'yamato', trackingNumber: '1111' };

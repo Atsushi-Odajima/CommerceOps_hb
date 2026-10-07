@@ -10,6 +10,7 @@ export const NUMBER_PREFIX = {
   exchange: 'EX',
   exception: 'EXC',
   import_batch: 'IMP',
+  purchase_order: 'PO',
 } as const;
 
 export type NumberKind = keyof typeof NUMBER_PREFIX;

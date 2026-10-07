@@ -4,6 +4,9 @@ CommerceOps 次の作業（常に最新化） — 2026-09-30 Phase 11 完了時�
   サーバー自動テスト 149/149、E2E 17/17（Chromium の端末エミュレーション）、競合検証 17/17、
   1 日 50 / 500 / 5,000 注文の業務フロー、51.25 万注文での規模検証、Docker のビルド・起動・初期設定・CLI の確認（docs/TEST_REPORT.md）。
 
+2026-10 追記: #013 StockPilot の仕入・補充・棚卸・取消を統合した（DECISIONS.md ADR-040、ブランチ claude/merge-stockpilot）。
+  移さなかった機能は ADR-040 の最後に一覧がある。画面は最低限のデザイン。
+
 販売・本番利用の前に人が行うこと（docs/RELEASE_CHECKLIST.md に詳細）
   1. 実機確認: iPhone Safari・Android Chrome・iPad Safari での Pick / Packing Station / カメラ読取（実物のラベル）/ ホーム画面追加 /
      オフライン → 再接続、ハンディスキャナ・Bluetooth スキャナ、プリンタ（WebKit と実機は自動テスト未実施）

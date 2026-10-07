@@ -20,6 +20,10 @@ export const PERMISSIONS = [
   'orders.cancel',
   'inventory.read',
   'inventory.adjust',
+  'purchasing.read',
+  'purchasing.manage',
+  'stocktake.count',
+  'stocktake.confirm',
   'allocation.manage',
   'fulfillment.manage',
   'waves.read',
@@ -62,7 +66,7 @@ const OPS_MANAGER: Permission[] = PERMISSIONS.filter((p) => !OWNER_ONLY.includes
 export const ROLE_PERMISSIONS: Record<Role, ReadonlySet<Permission>> = {
   owner: new Set(PERMISSIONS),
   ops_manager: new Set(OPS_MANAGER),
-  picker: new Set<Permission>(['products.read', 'waves.read', 'pick.execute', 'exceptions.report']),
+  picker: new Set<Permission>(['products.read', 'waves.read', 'pick.execute', 'exceptions.report', 'stocktake.count']),
   packer: new Set<Permission>([
     'products.read',
     'pack.execute',

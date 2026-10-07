@@ -75,10 +75,16 @@ CommerceOps は仕入・本格棚卸を主役にしないが、Fulfillment の�
   それでも発生した 40P01/40001 は安全なリトライ対象。
 - CHECK 制約 `allocated + held <= on_hand` が最終防衛線。
 
-## 5. StockPilot Connector 境界（将来）
+## 5. 仕入・補充・棚卸・取消（StockPilot #013 から統合。DECISIONS.md ADR-040）
 
-`server/src/modules/inventory/provider.ts` に `InventoryProvider` インターフェースを定義:
-- `getAvailability(warehouseId, productIds)` / `applyExternalOnHand(snapshot)` / `exportMovements(since)`
-初版は `LocalInventoryProvider`（本台帳）のみ実装。StockPilot 連携時は
-「StockPilot の on_hand を正として定期取込 → 差分を adjust movement として記録」「出荷/返品 movement を StockPilot へ送る」
-方式を想定（allocated/held は CommerceOps 側で保持）。仕入発注・補充分析・本格棚卸は #013 の領域として実装しない。
+| 操作 | 在庫の動き | 主な検証 |
+|---|---|---|
+| 発注入荷 | receipt（reference_type='po_line'）。発注明細の入荷済み R を加算 | 発注残 O=Q−R−C を超えると OVER_RECEIPT。requestId の再送は1回だけ |
+| 未入荷分の打切り | なし（C=Q−R） | 理由必須 |
+| 棚卸の確定 | 差異のある行だけ adjust（reference_type='stocktake'） | 開始時の理論在庫と現在の on_hand が違えば STOCKTAKE_STALE。実数 < 引当+調査中 なら STOCKTAKE_BELOW_COMMITTED |
+| 誤登録の取消 | reversal（元の反対方向。reversal_of_movement_id） | 入荷・調整・移動のみ。1回だけ。移動は相手側も戻す。発注入荷は R も戻す |
+
+補充判断数量 P = U + O − D（U=販売可能ロケーションの引当可能数、O=販売可能ロケーションへの発注残、D=未引当の受注）。
+P ≦ 発注点 なら 推奨 = ceil(max(目標 − P, 最小発注数量) ÷ 発注単位) × 発注単位、P > 発注点 なら 0。安全在庫割れ = U < 安全在庫。
+
+外部の在庫システムと連携する場合の境界は `server/src/modules/inventory/provider.ts` に残している（初版は未使用）。

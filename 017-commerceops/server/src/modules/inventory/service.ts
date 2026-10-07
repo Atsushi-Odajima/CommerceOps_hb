@@ -19,7 +19,8 @@ export type MovementType =
   | 'hold_loss'
   | 'transfer_out'
   | 'transfer_in'
-  | 'restore';
+  | 'restore'
+  | 'reversal';
 
 export interface BalanceRow {
   id: string;
@@ -59,6 +60,8 @@ export interface MovementInput {
   /** 同じキーの movement は 1 回しか適用されない */
   idempotencyKey?: string | null;
   reason?: string | null;
+  /** 誤登録の取消のとき、取り消す元の movement */
+  reversalOfMovementId?: string | null;
 }
 
 /**
@@ -76,8 +79,9 @@ export async function applyMovement(tx: Tx, m: MovementInput): Promise<{ applied
   const movementId = uuidv7();
   const ins = await tx.maybeOne(
     `INSERT INTO inventory_movements (organization_id, id, balance_id, warehouse_id, location_id, product_id, movement_type,
-                                      on_hand_delta, held_delta, reference_type, reference_id, idempotency_key, reason, actor_user_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+                                      on_hand_delta, held_delta, reference_type, reference_id, idempotency_key, reason, actor_user_id,
+                                      reversal_of_movement_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
      ON CONFLICT (organization_id, idempotency_key) DO NOTHING
      RETURNING id`,
     [
@@ -95,6 +99,7 @@ export async function applyMovement(tx: Tx, m: MovementInput): Promise<{ applied
       m.idempotencyKey ?? null,
       m.reason?.slice(0, 300) ?? null,
       tx.actor.userId,
+      m.reversalOfMovementId ?? null,
     ],
   );
   if (!ins) return { applied: false, movementId: null, balance: bal };
@@ -121,7 +126,19 @@ export async function applyMovement(tx: Tx, m: MovementInput): Promise<{ applied
 
 export async function receiveStock(
   tx: Tx,
-  input: { locationId: string; productId: string; qty: number; reason?: string | null; requestId?: string | null; type?: 'receipt' | 'restore' },
+  input: {
+    locationId: string;
+    productId: string;
+    qty: number;
+    reason?: string | null;
+    requestId?: string | null;
+    type?: 'receipt' | 'restore';
+    /** 発注入荷など、入荷の根拠（reference_type / reference_id） */
+    referenceType?: string | null;
+    referenceId?: string | null;
+    /** 冪等キーを呼び出し側で決める場合（指定時は requestId より優先） */
+    idempotencyKey?: string | null;
+  },
 ) {
   if (!Number.isInteger(input.qty) || input.qty <= 0) throw new AppError(400, 'INVALID_QTY', '数量は1以上の整数にしてください');
   const bal = await getOrCreateBalance(tx, input.locationId, input.productId);
@@ -129,9 +146,106 @@ export async function receiveStock(
     balanceId: bal.id,
     type: input.type ?? 'receipt',
     onHandDelta: input.qty,
-    idempotencyKey: input.requestId ? `receipt:${input.requestId}` : null,
+    referenceType: input.referenceType ?? null,
+    referenceId: input.referenceId ?? null,
+    idempotencyKey: input.idempotencyKey ?? (input.requestId ? `receipt:${input.requestId}` : null),
     reason: input.reason ?? '入荷',
   });
+}
+
+/** 取り消せる movement の種類（出荷・返品・ピッキング由来は各業務の画面で扱う） */
+const REVERSIBLE: MovementType[] = ['receipt', 'adjust', 'transfer_out', 'transfer_in'];
+
+interface MovementRow {
+  id: string;
+  balance_id: string;
+  warehouse_id: string;
+  movement_type: MovementType;
+  on_hand_delta: number;
+  held_delta: number;
+  reference_type: string | null;
+  reference_id: string | null;
+  idempotency_key: string | null;
+}
+
+/**
+ * 誤登録の取消（StockPilot から統合）: 反対方向の movement を記録し、元と取消の両方を台帳に残す。
+ * - 1つの movement は1回だけ取り消せる（DB の一意索引でも保証）。取消・棚卸の調整は取り消せない。
+ * - ロケーション移動は相手側も同時に戻す。発注入荷の取消は発注明細の入荷済み数量も戻す。
+ * - 取消で引当済み・調査中の数量を下回る場合は INSUFFICIENT_STOCK（実態の確認を促す）。
+ */
+export async function reverseMovement(tx: Tx, input: { movementId: string; reason: string; requestId?: string | null }) {
+  const m = await tx.maybeOne<MovementRow>(
+    `SELECT id, balance_id, warehouse_id, movement_type, on_hand_delta, held_delta, reference_type, reference_id, idempotency_key
+       FROM inventory_movements WHERE organization_id = $1 AND id = $2`,
+    [tx.orgId, input.movementId],
+  );
+  if (!m) throw notFound('在庫の履歴');
+  if (!REVERSIBLE.includes(m.movement_type) || m.reference_type === 'stocktake') {
+    throw conflict('NOT_REVERSIBLE', 'この履歴は取り消せません（取消・棚卸の調整・出荷や返品の処理は対象外です）');
+  }
+  // 移動は相手側（同じキーの out/in）も一緒に戻す
+  let targets: MovementRow[] = [m];
+  if ((m.movement_type === 'transfer_out' || m.movement_type === 'transfer_in') && m.idempotency_key) {
+    const key = m.idempotency_key.replace(/^transfer_(out|in):/, '');
+    targets = await tx.many<MovementRow>(
+      `SELECT id, balance_id, warehouse_id, movement_type, on_hand_delta, held_delta, reference_type, reference_id, idempotency_key
+         FROM inventory_movements WHERE organization_id = $1 AND idempotency_key = ANY($2::text[]) ORDER BY id`,
+      [tx.orgId, [`transfer_out:${key}`, `transfer_in:${key}`]],
+    );
+  }
+  const already = await tx.maybeOne(
+    `SELECT id FROM inventory_movements WHERE organization_id = $1 AND reversal_of_movement_id = ANY($2::uuid[]) LIMIT 1`,
+    [tx.orgId, targets.map((t) => t.id)],
+  );
+  if (already) {
+    // 同じ取消の再送は成功扱い（冪等）。別の取消要求は重複として拒否
+    if (input.requestId) {
+      const same = await tx.maybeOne(`SELECT id FROM inventory_movements WHERE organization_id = $1 AND idempotency_key = $2`, [
+        tx.orgId,
+        `reversal:${input.requestId}:${targets[0].id}`,
+      ]);
+      if (same) return { applied: false, reversed: targets.map((t) => t.id) };
+    }
+    throw conflict('ALREADY_REVERSED', 'この履歴はすでに取り消されています');
+  }
+  // ロック順を固定（残高 → 発注明細）
+  await tx.many(`SELECT id FROM inventory_balances WHERE organization_id = $1 AND id = ANY($2::uuid[]) ORDER BY id FOR UPDATE`, [
+    tx.orgId,
+    [...new Set(targets.map((t) => t.balance_id))],
+  ]);
+  for (const t of targets) {
+    if (t.reference_type === 'po_line' && t.reference_id) {
+      const line = await tx.maybeOne<{ received_qty: number }>(
+        `SELECT received_qty FROM purchase_order_lines WHERE organization_id = $1 AND id = $2 FOR UPDATE`,
+        [tx.orgId, t.reference_id],
+      );
+      if (line) {
+        if (line.received_qty < t.on_hand_delta) throw conflict('INVALID_QTY', '発注明細の入荷済み数量を下回るため取り消せません');
+        await tx.exec(`UPDATE purchase_order_lines SET received_qty = received_qty - $3 WHERE organization_id = $1 AND id = $2`, [
+          tx.orgId,
+          t.reference_id,
+          t.on_hand_delta,
+        ]);
+      }
+    }
+  }
+  // 入る側（減らす側）から先に適用して、在庫不足なら何も変えずに失敗させる
+  const ordered = [...targets].sort((a, b) => b.on_hand_delta - a.on_hand_delta);
+  for (const t of ordered) {
+    await applyMovement(tx, {
+      balanceId: t.balance_id,
+      type: 'reversal',
+      onHandDelta: -t.on_hand_delta,
+      heldDelta: -t.held_delta,
+      referenceType: t.reference_type,
+      referenceId: t.reference_id,
+      idempotencyKey: `reversal:${input.requestId ?? t.id}:${t.id}`,
+      reason: `取消: ${input.reason}`,
+      reversalOfMovementId: t.id,
+    });
+  }
+  return { applied: true, reversed: targets.map((t) => t.id) };
 }
 
 /** 棚卸調整: mode=set は on_hand を指定値に、mode=delta は増減 */

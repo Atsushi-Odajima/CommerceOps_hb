@@ -7,7 +7,7 @@ import { parse, zPage } from '../../lib/validate.js';
 import { readUpload } from '../../lib/upload.js';
 import { audit } from '../audit/audit.js';
 import { decodeCsvBuffer, parseCsvText } from '../imports/csvfile.js';
-import { adjustStock, receiveStock, resolveHeld, transferStock } from './service.js';
+import { adjustStock, receiveStock, resolveHeld, reverseMovement, transferStock } from './service.js';
 import { uuidv7 } from '../../lib/uuid.js';
 
 const Req = z.uuid().optional();
@@ -119,7 +119,8 @@ export async function inventoryRoutes(app: FastifyInstance) {
       const { total, totalCapped } = await cappedCount(tx, `FROM inventory_movements m WHERE ${where}`, params);
       params.push(q.limit, q.offset);
       const rows = await tx.many(
-        `SELECT m.*, p.sku, l.code AS location_code, w.code AS warehouse_code, u.name AS actor_name
+        `SELECT m.*, p.sku, l.code AS location_code, w.code AS warehouse_code, u.name AS actor_name,
+                EXISTS (SELECT 1 FROM inventory_movements r WHERE r.organization_id = m.organization_id AND r.reversal_of_movement_id = m.id) AS reversed
            FROM inventory_movements m
            JOIN products p ON p.organization_id = m.organization_id AND p.id = m.product_id
            JOIN locations l ON l.organization_id = m.organization_id AND l.id = m.location_id
@@ -144,6 +145,9 @@ export async function inventoryRoutes(app: FastifyInstance) {
           reason: m.reason,
           actor: m.actor_name,
           createdAt: m.created_at,
+          reversalOfMovementId: m.reversal_of_movement_id,
+          reversed: m.reversed,
+          reversible: !m.reversed && ['receipt', 'adjust', 'transfer_out', 'transfer_in'].includes(m.movement_type) && m.reference_type !== 'stocktake',
         })),
       };
     });
@@ -209,6 +213,20 @@ export async function inventoryRoutes(app: FastifyInstance) {
         summary: `ロケーション移動 ${body.qty}${r.fromKind !== r.toKind ? `（${r.fromKind} → ${r.toKind}）` : ''}`,
         metadata: { qty: body.qty, fromKind: r.fromKind, toKind: r.toKind }, // 理由の本文は在庫移動の行に残す（監査ログには自由記述を入れない）
       });
+      return r;
+    });
+  });
+
+  // 誤登録の取消（StockPilot から統合）。移動は相手側も、発注入荷は発注明細の入荷済み数量も戻す
+  app.post('/api/inventory/movements/:id/reverse', { preHandler: perm('inventory.adjust') }, async (req) => {
+    const { id } = parse(z.object({ id: z.uuid() }), req.params);
+    const body = parse(z.object({ reason: z.string().trim().min(1, '取消の理由を入力してください').max(300), requestId: Req }), req.body);
+    return orgTx(req, async (tx) => {
+      const m = await tx.maybeOne(`SELECT warehouse_id, product_id FROM inventory_movements WHERE organization_id = $1 AND id = $2`, [tx.orgId, id]);
+      if (!m) throw notFound('在庫の履歴');
+      assertWarehouse(req, m.warehouse_id);
+      const r = await reverseMovement(tx, { movementId: id, reason: body.reason, requestId: body.requestId ?? null });
+      await audit(tx, { action: 'inventory.reverse', entityType: 'inventory_movement', entityId: id, summary: '在庫の誤登録を取消', metadata: { reversed: r.reversed, applied: r.applied } });
       return r;
     });
   });

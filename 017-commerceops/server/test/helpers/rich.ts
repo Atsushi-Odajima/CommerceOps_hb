@@ -174,6 +174,32 @@ export async function richOrg(env: TestEnv, marker = 'PIIMARK'): Promise<RichOrg
   expectStatus(await c.patch(`/api/customers/${ids.customerId}`, { name: `${marker} 花子（更新）`, postalCode: '100-0001', address1: `千代田区${marker}1-1`, phone: '03-0000-0000' }), 200);
   ids.invitationId = expectStatus(await c.post('/api/users/invitations', { email: `${marker.toLowerCase()}.invitee@example.test`, role: 'picker' }), 200).body.id;
 
+  // StockPilot 統合分: 仕入先・補充設定・発注（分納 + 打切り）・棚卸（差異あり）・誤登録の取消
+  const sup = expectStatus(await c.post('/api/suppliers', { code: 'SUP-1', name: `${marker} 商事`, leadTimeDays: 5 }), 200).body;
+  ids.supplierId = sup.id;
+  expectStatus(
+    await c.put(`/api/products/${s.products['SKU-C']}/replenishment`, { settings: { supplierId: sup.id, safetyStock: 2, reorderPoint: 5, targetStock: 20, orderMultiple: 5, minOrderQty: 0 } }),
+    200,
+  );
+  const po = expectStatus(
+    await c.post('/api/purchase-orders', { supplierId: sup.id, warehouseId: TKY, lines: [{ productId: s.products['SKU-C'], locationId: tky['A-05'], qty: 10 }] }),
+    200,
+  ).body;
+  ids.purchaseOrderId = po.id;
+  expectStatus(await c.post(`/api/purchase-orders/${po.id}/place`, {}), 200);
+  expectStatus(await c.post(`/api/purchase-orders/${po.id}/receive`, { requestId: randomUUID(), lines: [{ lineId: po.lines[0].id, qty: 6 }] }), 200);
+  expectStatus(await c.post(`/api/purchase-orders/${po.id}/close`, { reason: '欠品のため打切り' }), 200);
+  const st = expectStatus(await c.post('/api/stocktakes', { locationId: tky['A-05'] }), 200).body;
+  ids.stocktakeId = st.id;
+  ids.stocktakeLineId = st.lines[0].id;
+  expectStatus(await c.put(`/api/stocktakes/${st.id}/lines/${st.lines[0].id}`, { countedQty: 5, reason: '破損1個', version: st.lines[0].version }), 200);
+  expectStatus(await c.post(`/api/stocktakes/${st.id}/review`, {}), 200);
+  expectStatus(await c.post(`/api/stocktakes/${st.id}/confirm`, {}), 200);
+  const mistaken = expectStatus(await c.post('/api/inventory/receipts', { locationId: tky['A-04'], productId: s.products['SKU-B'], qty: 3, requestId: randomUUID() }), 200).body;
+  const mv = (await env.tx(s.orgId, (tx) => tx.one(`SELECT id FROM inventory_movements WHERE organization_id = $1 AND balance_id = $2 ORDER BY id DESC LIMIT 1`, [s.orgId, mistaken.balance.id]))).id;
+  ids.movementId = mv;
+  expectStatus(await c.post(`/api/inventory/movements/${mv}/reverse`, { reason: '入力ミス', requestId: randomUUID() }), 200);
+
   ids.productId = s.products['SKU-A']!;
   ids.warehouseId = TKY;
   ids.locationId = tky['A-01']!;

@@ -26,6 +26,12 @@ const NewOrderPage = lazy(() => import('../pages/orders/NewOrderPage'));
 const AllocationPage = lazy(() => import('../pages/allocation/AllocationPage'));
 const InventoryPage = lazy(() => import('../pages/inventory/InventoryPage'));
 const MovementsPage = lazy(() => import('../pages/inventory/InventoryPage').then((m) => ({ default: m.MovementsPage })));
+const SuppliersPage = lazy(() => import('../pages/inventory/PurchasingPages').then((m) => ({ default: m.SuppliersPage })));
+const PurchaseOrdersPage = lazy(() => import('../pages/inventory/PurchasingPages').then((m) => ({ default: m.PurchaseOrdersPage })));
+const PurchaseOrderDetailPage = lazy(() => import('../pages/inventory/PurchasingPages').then((m) => ({ default: m.PurchaseOrderDetailPage })));
+const ReplenishmentPage = lazy(() => import('../pages/inventory/PurchasingPages').then((m) => ({ default: m.ReplenishmentPage })));
+const StocktakesPage = lazy(() => import('../pages/inventory/PurchasingPages').then((m) => ({ default: m.StocktakesPage })));
+const StocktakeDetailPage = lazy(() => import('../pages/inventory/PurchasingPages').then((m) => ({ default: m.StocktakeDetailPage })));
 const WavesPage = lazy(() => import('../pages/waves/WavePages'));
 const WaveCreatePage = lazy(() => import('../pages/waves/WavePages').then((m) => ({ default: m.WaveCreatePage })));
 const WaveDetailPage = lazy(() => import('../pages/waves/WavePages').then((m) => ({ default: m.WaveDetailPage })));
@@ -99,11 +105,17 @@ export const appRoutes: RouteObject[] = [
   },
   {
     path: 'inventory',
-    element: P(['inventory.read', 'products.read'], <InventoryLayout />),
+    element: P(['inventory.read', 'products.read', 'purchasing.read', 'stocktake.count'], <InventoryLayout />),
     children: [
       { index: true, element: P('inventory.read', <InventoryPage />) },
       { path: 'products', element: S(<ProductsPage />) },
       { path: 'movements', element: P('inventory.read', <MovementsPage />) },
+      { path: 'purchase-orders', element: P('purchasing.read', <PurchaseOrdersPage />) },
+      { path: 'purchase-orders/:id', element: P('purchasing.read', <PurchaseOrderDetailPage />) },
+      { path: 'replenishment', element: P('purchasing.read', <ReplenishmentPage />) },
+      { path: 'suppliers', element: P('purchasing.read', <SuppliersPage />) },
+      { path: 'stocktakes', element: P(['stocktake.count', 'inventory.read'], <StocktakesPage />) },
+      { path: 'stocktakes/:id', element: P(['stocktake.count', 'inventory.read'], <StocktakeDetailPage />) },
     ],
   },
 ];

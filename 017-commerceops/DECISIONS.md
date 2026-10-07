@@ -209,3 +209,21 @@
 - 画面から扱うバックアップの上限を 2 つの設定に分けた: ファイル（gzip）`BACKUP_MAX_UPLOAD_MB`（既定 256MB）、展開後 `BACKUP_MAX_EXPANDED_MB`
   （既定 1024MB。以前は定数 1GB）。どちらも画面に表示。実測で約 10 万注文 = gzip 約 250MB のため、それより大きい組織は CLI。
 - 写真ファイルが保存先に見つからない場合、backup-cli は警告して終了コード 1（`--allow-missing-files` で許容）、検証結果に欠落数を表示する。
+
+## ADR-040 StockPilot（#013）の統合（仕入先・発注・補充・棚卸・誤登録の取消）
+- 決定: 商品整理のため #013 StockPilot の在庫業務を CommerceOps に統合した。在庫の正は従来どおり inventory_balances / inventory_movements（applyMovement が唯一の書込口）。
+  #013 のコードは変更していない。移行 `0004_stockpilot_merge.sql`、SCHEMA_VERSION を 2 に上げた（新しい表を含むため、旧版のバックアップは復元できない）。
+- 発注: suppliers / purchase_orders / purchase_order_lines。Q=発注数、R=入荷済み、C=打切り、発注残 O=Q−R−C（発注済みのみ。下書きは含めない）。
+  入荷は明細ごと・入荷先ロケーション別に分割でき、発注残を超えると OVER_RECEIPT（在庫・発注とも不変）。入荷は reference_type='po_line' の receipt movement。
+  同じ requestId の再送は1回だけ反映。入荷済みがある発注は取り消せず「未入荷分を打ち切る」（理由必須）で締める。発注の版管理（発注済みの訂正）と PDF の発注書は移していない。
+- 補充: product_replenishment（商品ごと。組織全体で判定）。P = U + O − D。U は販売可能ロケーションの引当可能数（on_hand − allocated − held）、
+  O は販売可能ロケーションへ入る発注残、D は引当待ち注文の未引当数量。D は StockPilot には無いが、EC では受注残を差し引かないと過小発注になるため加えた。
+  推奨数の式・安全在庫割れ・BASIS_CHANGED（表示時と P が違えば下書きを作らない）は StockPilot と同じ。下書きは仕入先ごとに1件、入荷先は倉庫の既定の販売可能ロケーション。
+- 棚卸: stocktakes / stocktake_lines（1セッション=1ロケーション、未計数 NULL、差異は理由必須、version で競合検出）。
+  StockPilot はロケーションを止めるが、CommerceOps はピッキング・出荷が常に動くため止めない。代わりに確定時に開始時の理論在庫と現在の on_hand を比べ、
+  違えば STOCKTAKE_STALE（古い理論で調整しない）。実数が引当済み・調査中を下回る場合は STOCKTAKE_BELOW_COMMITTED（引当を勝手に外さない）。
+  権限は計数（stocktake.count: Picker も可）と確定（stocktake.confirm）を分けた。
+- 誤登録の取消: movement_type='reversal' と reversal_of_movement_id（1回だけ。一意索引）。対象は入荷・調整・移動（移動は相手側も同時に戻す）。
+  発注入荷の取消は発注明細の R も戻す。棚卸の調整・出荷・返品・ピッキング由来は取り消せない（各業務の画面で扱う）。
+- 移していない機能: 発注の訂正履歴と発注書 PDF、仕入先返品、目的別の出庫（サンプル・社内利用）、業務日付と伝票番号、使われていない SKU の一覧、
+  StockPilot の CSV 種類（仕入先・発注下書き・入出庫）、データ世代（dataEpoch）。CommerceOps の注文・返品の流れや既存の在庫 CSV と重なる、または別途設計が必要なため。

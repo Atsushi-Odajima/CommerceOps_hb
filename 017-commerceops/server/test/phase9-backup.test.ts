@@ -1,3 +1,4 @@
+import { SCHEMA_VERSION } from '../src/version.js';
 import { execFile } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
@@ -183,7 +184,7 @@ describe('Phase9 backup / restore (R26, E2E-9)', () => {
     const v = await uploadFile(s.owner.client, '/api/backup/verify', {}, file, 'backup.ndjson.gz');
     expect(v.status).toBe(200);
     expect(v.body).toMatchObject({ ok: true, errors: [], users: 5, files: 1 });
-    expect(v.body.header).toMatchObject({ schemaVersion: 1, appVersion: '1.0.0', isSample: false });
+    expect(v.body.header).toMatchObject({ schemaVersion: SCHEMA_VERSION, appVersion: '1.0.0', isSample: false });
     expect(v.body.counts).toEqual(Object.fromEntries(BACKUP_TABLES.map((t) => [t, src[t]!.length])));
     expect(await orgsNamed(restoredPattern)).toBe(0);
     const run1 = expectStatus(await s.owner.client.get('/api/backup/runs'), 200).body.items[0];
@@ -365,7 +366,7 @@ describe('Phase9 backup / restore (R26, E2E-9)', () => {
     expect((await uploadFile(c, '/api/backup/verify', {}, Buffer.from('id,name\n1,x\n'), 'x.csv')).body.error.code).toBe('NOT_A_BACKUP');
     // 別の版のデータベースで作られたファイル（チェックサムは正しい）
     const otherSchema = resign(lines.map((l, i) => (i === 0 ? JSON.stringify({ ...JSON.parse(l), schemaVersion: 999 }) : l)));
-    expect((await verify(otherSchema)).errors.join()).toContain('データベースの版が異なります（ファイル: 999 / このシステム: 1）');
+    expect((await verify(otherSchema)).errors.join()).toContain(`データベースの版が異なります（ファイル: 999 / このシステム: ${SCHEMA_VERSION}）`);
     // 形式違反（organization_id を含む行・対象外テーブル）
     const withOrg = resign(lines.map((l) => (JSON.parse(l).t === 'products' ? JSON.stringify({ ...JSON.parse(l), d: { ...JSON.parse(l).d, organization_id: s.orgId } }) : l)));
     expect((await verify(withOrg)).errors.join()).toContain('行データが不正です');

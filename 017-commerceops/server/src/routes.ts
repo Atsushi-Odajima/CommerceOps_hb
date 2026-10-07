@@ -19,6 +19,8 @@ import { assignmentRoutes } from './modules/assignments/routes.js';
 import { exportRoutes } from './modules/exports/routes.js';
 import { backupRoutes } from './modules/backup/routes.js';
 import { auditRoutes } from './modules/audit/routes.js';
+import { purchasingRoutes } from './modules/purchasing/routes.js';
+import { stocktakeRoutes } from './modules/stocktake/routes.js';
 import './jobs/register.js';
 
 /** 業務モジュールのルート登録 */
@@ -43,4 +45,6 @@ export async function registerModuleRoutes(app: FastifyInstance) {
   await app.register(exportRoutes);
   await app.register(backupRoutes);
   await app.register(auditRoutes);
+  await app.register(purchasingRoutes);
+  await app.register(stocktakeRoutes);
 }

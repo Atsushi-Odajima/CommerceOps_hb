@@ -495,6 +495,22 @@ export function MovementsPage() {
     transfer_out: '移動（出）',
     transfer_in: '移動（入）',
     restore: '復元',
+    reversal: '取消',
+  };
+  const { can } = useAuth();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const reverse = async (m: any) => {
+    const reason = window.prompt(`この${TYPE[m.type] ?? m.type}（${m.sku} ${m.onHandDelta > 0 ? '+' : ''}${m.onHandDelta}）を取り消す理由`);
+    if (!reason) return;
+    try {
+      await post(`/inventory/movements/${m.id}/reverse`, { reason, requestId: newRequestId() });
+      toast.success('取り消しました');
+      await qc.invalidateQueries({ queryKey: ['movements'] });
+      await qc.invalidateQueries({ queryKey: ['inventory'] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '取り消せませんでした');
+    }
   };
   return (
     <div className="card">
@@ -516,6 +532,7 @@ export function MovementsPage() {
                   <th className="num">調査中</th>
                   <th>理由</th>
                   <th>実行者</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -535,6 +552,9 @@ export function MovementsPage() {
                     <td className="num">{m.heldDelta ? (m.heldDelta > 0 ? `+${m.heldDelta}` : m.heldDelta) : ''}</td>
                     <td className="small">{m.reason}</td>
                     <td className="small">{m.actor ?? 'システム'}</td>
+                    <td>
+                      {m.reversed ? <Badge>取消済み</Badge> : m.reversible && can('inventory.adjust') ? <button className="btn btn-sm" onClick={() => void reverse(m)}>取消</button> : null}
+                    </td>
                   </tr>
                 ))}
               </tbody>

@@ -1,7 +1,7 @@
 /**
- * StockPilot（#013）連携の境界（将来）。
- * 初版は CommerceOps 内の最小在庫台帳（LocalInventoryProvider 相当 = inventory/service.ts）のみ。
- * 仕入発注・補充分析・本格棚卸は #013 の領域として CommerceOps には実装しない。
+ * 外部在庫システム連携の境界（将来）。
+ * StockPilot（#013）の仕入発注・補充・棚卸は CommerceOps に統合済み（DECISIONS.md ADR-040）。
+ * 以下は他の在庫システムと連携する場合の想定として残す。
  *
  * 想定する連携方式:
  *  - StockPilot の on_hand を正として定期取込 → 差分を adjust movement として記録（applyExternalOnHand）
