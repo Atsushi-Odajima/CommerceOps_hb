@@ -15,7 +15,7 @@
 │  │  ├─ jobs/         PostgreSQL Job キュー
 │  │  └─ scripts/      seed-sample, create-owner, backup/restore CLI, integrity
 │  └─ test/           Vitest（実 PostgreSQL）
-├─ web/               React + Vite + PWA
+├─ web/               React + Vite + PWA（src/lib/imageCheck: 商品画像チェックの照合処理、test/: Vitest）
 ├─ e2e/               Playwright（PC / iPhone / Android / iPad エミュレーション）
 ├─ load/              負荷・データ量試験スクリプト
 ├─ docs/              開発資料
@@ -53,7 +53,7 @@ npm run dev -w web             # http://localhost:5173 （/api は 3000 へプ�
 | コマンド | 内容 |
 |---|---|
 | `npm run typecheck` | server/web の型検査 |
-| `npm test` | サーバーの単体/統合/競合テスト（`commerceops_test` を毎回初期化） |
+| `npm test` | サーバーの単体/統合/競合テスト（`commerceops_test` を毎回初期化）と、web の純粋な処理の単体テスト（`web/test/`、DB 不要） |
 | `npm run e2e` | Playwright E2E（ビルド済み web + API を起動して実行） |
 | `npm run build` | web → server の本番ビルド |
 | `npm run create-owner -w server -- --org "店名" --email owner@example.com --name "氏名"` | 初期 Owner 作成（パスワードは対話入力または自動生成して表示） |

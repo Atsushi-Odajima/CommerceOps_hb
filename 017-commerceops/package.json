@@ -17,7 +17,7 @@
     "build": "npm run build -w web && npm run build -w server",
     "start": "npm run start -w server",
     "typecheck": "npm run typecheck -w server && npm run typecheck -w web",
-    "test": "npm run test -w server",
+    "test": "npm run test -w server && npm run test -w web",
     "e2e": "npm run test -w e2e",
     "db:migrate": "npm run db:migrate -w server",
     "seed:sample": "npm run seed:sample -w server"

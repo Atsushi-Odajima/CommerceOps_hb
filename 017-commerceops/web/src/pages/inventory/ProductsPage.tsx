@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, get, patch, post, del } from '../../api/client';
 import { useAuth } from '../../auth/AuthContext';
@@ -26,16 +27,21 @@ export default function ProductsPage() {
     <div className="card">
       <div className="card-header">
         <h2>商品（SKU）</h2>
-        {canEdit && (
-          <div className="actions">
-            <button className="btn btn-sm" onClick={() => setImportOpen(true)}>
-              CSV 取込
-            </button>
-            <button className="btn btn-primary btn-sm" onClick={() => setEdit({ active: true, barcodes: [] })}>
-              商品を追加
-            </button>
-          </div>
-        )}
+        <div className="actions">
+          <Link className="btn btn-sm" to="/inventory/products/image-check">
+            商品画像チェック
+          </Link>
+          {canEdit && (
+            <>
+              <button className="btn btn-sm" onClick={() => setImportOpen(true)}>
+                CSV 取込
+              </button>
+              <button className="btn btn-primary btn-sm" onClick={() => setEdit({ active: true, barcodes: [] })}>
+                商品を追加
+              </button>
+            </>
+          )}
+        </div>
       </div>
       <form
         className="filters"
@@ -301,6 +307,10 @@ function ProductImportModal({ onClose }: { onClose: () => void }) {
         列: <code>sku,name,variant,group_code,barcodes,weight_g,image_url,active</code>（barcodes は <code>|</code> 区切り）。
         全行が正しい場合のみ登録します（SKU が既存なら更新）。テンプレートは購入者資料「CSVテンプレート/商品CSVテンプレート.csv」。
       </p>
+      <div className="alert info small">
+        取り込む前に、CSV の画像（image_url）と手元の画像ファイルの名前が合っているかを確認できます（ファイルは送信しません）:{' '}
+        <Link to="/inventory/products/image-check">CommerceOps 商品画像チェック</Link>
+      </div>
       <ErrorBox error={err} />
       <div className="inline-fields">
         <Field label="ファイル" htmlFor="pi-file">

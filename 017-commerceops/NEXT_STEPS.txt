@@ -6,6 +6,9 @@ CommerceOps 次の作業（常に最新化） — 2026-09-30 Phase 11 完了時�
 
 2026-10 追記: #013 StockPilot の仕入・補充・棚卸・取消を統合した（DECISIONS.md ADR-040、ブランチ claude/merge-stockpilot）。
   移さなかった機能は ADR-040 の最後に一覧がある。画面は最低限のデザイン。
+2026-10 追記: #006 商品CSV × 商品画像 照合ツールを「CommerceOps 商品画像チェック」として統合した（ADR-041、ブランチ claude/merge-csv-image-checker）。
+  ブラウザ内だけで照合（ファイルは送信しない）。画面は最低限のデザインで、CSV プレビュー・手順表示などの見た目の作り込みは今後。
+  実機（Windows の Chrome / Edge、Mac・スマホのフォルダ選択）と、購入者の実データ（数千行・数千枚）での確認は未実施。
 
 販売・本番利用の前に人が行うこと（docs/RELEASE_CHECKLIST.md に詳細）
   1. 実機確認: iPhone Safari・Android Chrome・iPad Safari での Pick / Packing Station / カメラ読取（実物のラベル）/ ホーム画面追加 /

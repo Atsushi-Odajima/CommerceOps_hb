@@ -16,6 +16,7 @@ const BackupPage = lazy(() => import('../pages/settings/BackupPage'));
 const AuditPage = lazy(() => import('../pages/AuditPage'));
 const InventoryLayout = lazy(() => import('../pages/inventory/InventoryLayout'));
 const ProductsPage = lazy(() => import('../pages/inventory/ProductsPage'));
+const ProductImageCheckPage = lazy(() => import('../pages/inventory/ProductImageCheckPage'));
 const LocationLabelsPrint = lazy(() => import('../print/LocationLabelsPrint'));
 const ImportsPage = lazy(() => import('../pages/imports/ImportPages'));
 const NewImportPage = lazy(() => import('../pages/imports/ImportPages').then((m) => ({ default: m.NewImportPage })));
@@ -109,6 +110,7 @@ export const appRoutes: RouteObject[] = [
     children: [
       { index: true, element: P('inventory.read', <InventoryPage />) },
       { path: 'products', element: S(<ProductsPage />) },
+      { path: 'products/image-check', element: P('products.read', <ProductImageCheckPage />) },
       { path: 'movements', element: P('inventory.read', <MovementsPage />) },
       { path: 'purchase-orders', element: P('purchasing.read', <PurchaseOrdersPage />) },
       { path: 'purchase-orders/:id', element: P('purchasing.read', <PurchaseOrderDetailPage />) },

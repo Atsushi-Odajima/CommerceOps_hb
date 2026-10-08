@@ -173,3 +173,13 @@
 - サーバー: modules/purchasing（仕入先・発注・入荷・打切り・補充候補・下書き作成）、modules/stocktake、inventory の取消 API。権限 purchasing.read/manage・stocktake.count/confirm。
 - テスト: test/phase12-stockpilot-merge.test.ts（9件）。既存のバックアップ/復元（新しい表を含めて全行一致）・テナント分離の総当たり（新しいルートも他組織IDで成功しない）を更新。
 - 画面: 在庫・商品に「発注」「補充」「仕入先」「棚卸」タブ、在庫履歴に「取消」ボタン。デザインは既存部品のみ（最低限）。
+
+## 商品CSV × 商品画像 照合ツール（#006）統合 —「CommerceOps 商品画像チェック」
+- 内容は DECISIONS.md ADR-041。サーバー・DB の変更なし（照合はブラウザ内のみ、ファイルは送信しない）。
+- 純粋なモジュール: web/src/lib/imageCheck/（matcher.ts / csv.ts / helpers.ts）。#006 の matcher.js・csv.js の移植 + URL・商品マスタ・列の仮選択・絞り込み・結果 CSV。
+- 画面: web/src/pages/inventory/ProductImageCheckPage.tsx（/inventory/products/image-check）。商品画面の「商品画像チェック」、商品 CSV 取込のリンクから。
+  照合対象（商品 CSV／登録済みの商品マスタ）→ 画像（複数選択・フォルダごと）→ 比較設定 → 6 分類の件数・絞り込み・検索・結果表（最大 2,000 件表示）→ CSV 保存（全件／問題だけ）。
+- テスト: web/test/imageCheck.test.ts（53 件。#006 の 35 件をすべて移植 + 追加 18 件）。`npm test` はサーバー 158 件 + web 53 件。
+  E2E: e2e/tests/product-image-check.spec.ts（取込画面から開く → CSV + 画像 → 件数・絞り込み・検索・CSV 保存・設定変更・フォルダ選択の複数候補
+  → 商品マスタの照合 → axe → GET 以外の通信なし → スマホ幅で横はみ出しなし）。
+- 購入者資料: buyer-docs/商品画像チェック.txt（新規）、はじめに.txt の同梱資料一覧、CSVテンプレートの説明.txt の image_url。
